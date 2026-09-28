@@ -2,6 +2,9 @@
 
 Windows 本机媒体下载与归档工具。**无登录、无账号、无配对，安装即可用。**
 
+- **仓库**：<https://github.com/Ly233ly/download_video_new>（分支 `main`）
+- **旧项目**（只读，永不修改）：`E:\Users\MSI\Desktop\codex_download`
+
 ## 用户需求（不可违背）
 
 这是用户逐条明确提出的要求，**任何时候都不得违反**。括号内是对应的规范落点。
