@@ -1,0 +1,19 @@
+{
+  "id": "generic",
+  "name": "通用",
+  "version": 1,
+  "updatedFor": null,
+  "match": {
+    "hosts": ["*"],
+    "priority": 0
+  },
+  "identity": {
+    "requireId": false
+  },
+  "capture": {
+    "primarySelection": "all",
+    "allowDirectStream": false,
+    "requireBlobSource": true
+  },
+  "codeReason": null
+}

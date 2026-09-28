@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<title>留底下载器 · 界面设计稿</title>
+<style>
+  /* ==================================================================
+     设计稿 · 静态 HTML，双击浏览器打开，不参与构建
+     token 与 docs/09-UI.md §4 一一对应；改动后跑 `node design/_check.mjs`
+     ================================================================== */
+
+  /* ============ 主题变量（唯一 token 来源） ============ */
+  :root{
+    /* 表面 */
+    --bg:#eef0f4;              /* 窗口外围留白 */
+    --surface:#ffffff;         /* 主表面：卡片、标题栏 */
+    --surface-2:#f6f7f9;       /* 次级表面：侧栏、页脚 */
+    --sidebar-bg:#f7f8fa;      /* 侧栏（略深于内容区，与主区拉开层次） */
+    --titlebar-bg:linear-gradient(180deg,#ffffff,#fbfcfd);
+    /* 描边 */
+    --border:#e6e8ec;
+    --border-strong:#c9cdd6;
+    /* 文字 */
+    --text:#1a1d21;
+    --text-2:#6b7280;
+    --text-3:#9aa1ac;
+    /* 强调与语义 */
+    --accent:#2f6df6;
+    --accent-soft:#eaf0fe;
+    --accent-ink:#ffffff;
+    --ok:#12a150;
+    --warn:#d97706;
+    --err:#dc2626;
+    /* 控件 */
+    --track:#eceef2;
+    --shadow:0 1px 2px rgba(16,24,40,.05),0 6px 16px rgba(16,24,40,.055);
+    --shadow-pop:0 16px 48px rgba(16,24,40,.22);
+    /* 度量 */
+    --r-win:14px;
+    --r-card:12px;
+    --r-ctl:7px;
+    --r-pill:999px;
+    --sidebar-w:196px;
+    --titlebar-h:48px;
+  }
+  [data-theme="dark"]{
+    --bg:#0c0e12;
+    --surface:#1e2126;
+    --surface-2:#23262c;
+    --sidebar-bg:#191c21;
+    --titlebar-bg:linear-gradient(180deg,#22252b,#1e2126);
+    --border:#2e323a;
+    --border-strong:#3d424c;
+    --text:#e8eaed;
+    --text-2:#9aa1ac;
+    --text-3:#6b7280;
+    --accent:#5b8dff;
+    --accent-soft:#1e2740;
+    --accent-ink:#ffffff;
+    --ok:#34d399;
+    --warn:#fbbf24;
+    --err:#f87171;
+    --track:#2a2e36;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.25);
+    --shadow-pop:0 16px 48px rgba(0,0,0,.5);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font:14px/1.55 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--text); height:100vh; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; padding:28px;
+    transition:background .2s,color .2s;
+  }
+
+  /* ============ 窗口 ============ */
+  .win{
+    width:1180px; height:720px; background:var(--surface); border-radius:var(--r-win);
+    box-shadow:0 12px 40px rgba(16,24,40,.16), 0 0 0 1px var(--border);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .titlebar{
+    height:var(--titlebar-h); flex:0 0 var(--titlebar-h); display:flex; align-items:center; gap:10px;
+    padding:0 16px; border-bottom:1px solid var(--border); background:var(--titlebar-bg);
+  }
+  .logo{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#7aa7ff);flex:0 0 20px;
+        box-shadow:0 2px 6px rgba(47,109,246,.32)}
+  .brand{font-weight:650;letter-spacing:.2px}
+  .ver{color:var(--text-3);font-size:12px}
+  .spacer{flex:1}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-pill);padding:4px 10px;
+    box-shadow:0 1px 2px rgba(16,24,40,.04);
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-3);flex:0 0 7px}
+  .dot.off{background:var(--warn)}
+  .dot.on{background:var(--ok)}
+
+  .body{flex:1;display:flex;min-height:0}
+
+  /* ============ 侧栏 ============ */
+  .side{
+    width:var(--sidebar-w);flex:0 0 var(--sidebar-w);border-right:1px solid var(--border);
+    background:var(--sidebar-bg);padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+  }
+  .nav{
+    display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;
+    color:var(--text-2);cursor:pointer;font-size:13.5px;border:none;background:none;
+    width:100%;text-align:left;font-family:inherit;transition:background .12s,color .12s;position:relative;
+  }
+  .nav:hover{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(16,24,40,.05)}
+  .nav.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .nav.on::before{content:"";position:absolute;left:-10px;top:50%;transform:translateY(-50%);
+                  width:3px;height:18px;border-radius:0 3px 3px 0;background:var(--accent)}
+  .nav .ic{width:16px;height:16px;flex:0 0 16px;opacity:.9}
+  .side .gap{flex:1}
+  .side .sep{height:1px;background:var(--border);margin:8px 4px}
+
+  /* ============ 主区 ============ */
+  .main{flex:1;min-width:0;overflow-y:auto;padding:22px 26px 30px}
+  .main::-webkit-scrollbar{width:10px}
+  .main::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:6px;border:3px solid var(--surface)}
+  h1{font-size:19px;font-weight:650;margin-bottom:3px;letter-spacing:.2px}
+  h1::after{content:"";display:block;width:28px;height:3px;border-radius:2px;background:var(--accent);margin-top:9px}
+  .sub{color:var(--text-3);font-size:12.5px;margin:9px 0 18px}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);box-shadow:var(--shadow);overflow:hidden}
+  .row{padding:15px 17px;border-bottom:1px solid var(--border);transition:background .12s}
+  .row:last-child{border-bottom:none}
+  .row:hover{background:var(--surface-2)}
+  .rowline{display:flex;align-items:flex-start;gap:12px}
+  .thumb{width:64px;height:40px;border-radius:6px;flex:0 0 64px;background:linear-gradient(135deg,#dbe3f5,#c9d5ee);
+         position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(16,24,40,.06)}
+  [data-theme="dark"] .thumb{background:linear-gradient(135deg,#2c3446,#232a3a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+  .grow{flex:1;min-width:0}
+  .ttl{font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta{color:var(--text-3);font-size:12.5px}
+  .mono{font-family:"Cascadia Mono",Consolas,monospace;font-size:12px;color:var(--text-2);
+        background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
+        padding:5px 9px;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .badge{font-size:11.5px;padding:2px 8px;border-radius:var(--r-pill);font-weight:600;white-space:nowrap;flex:0 0 auto}
+  .b-run{background:var(--accent-soft);color:var(--accent)}
+  .b-ok{background:rgba(18,161,80,.12);color:var(--ok)}
+  .b-err{background:rgba(220,38,38,.1);color:var(--err)}
+  .b-wait{background:rgba(217,119,6,.12);color:var(--warn)}
+  .b-mute{background:var(--track);color:var(--text-2)}
+
+  .bar{height:6px;background:var(--track);border-radius:99px;overflow:hidden;margin:9px 0 5px}
+  .bar > i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .3s}
+  .bar > i.ok{background:var(--ok)}
+
+  .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  .btn{
+    font:inherit;font-size:12.5px;padding:6px 12px;border-radius:var(--r-ctl);cursor:pointer;
+    border:1px solid var(--border);background:var(--surface);color:var(--text);transition:.12s;
+  }
+  .btn:hover{background:var(--surface-2);border-color:var(--text-3)}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+  .btn.pri:hover{filter:brightness(1.06)}
+  .btn.danger{color:var(--err);border-color:rgba(220,38,38,.3)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn:focus-visible,.nav:focus-visible,.switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .stat{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+  .stat .s{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-card);
+           padding:13px 15px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .stat .s::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.65}
+  .stat .s.g::before{background:var(--ok)}
+  .stat .s.r::before{background:var(--err)}
+  .stat .s.n::before{background:var(--border-strong)}
+  .stat .n{font-size:22px;font-weight:680;letter-spacing:.3px;color:var(--text)}
+  .stat .l{color:var(--text-3);font-size:12px;margin-top:2px}
+
+  .field{display:flex;align-items:center;gap:12px;padding:14px 17px;border-bottom:1px solid var(--border)}
+  .field:last-child{border-bottom:none}
+  .field .k{width:132px;flex:0 0 132px;color:var(--text-2);font-size:13px}
+  .field .v{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .field .v .meta{font-size:12px}
+  input[type=text],select{
+    font:inherit;font-size:13px;padding:7px 11px;border-radius:var(--r-ctl);border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text);min-width:210px;
+  }
+  input[type=text]:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  input[type=text]:disabled{opacity:.5}
+
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface-2)}
+  .seg button{font:inherit;font-size:12.5px;padding:6px 14px;border:none;background:none;color:var(--text-2);cursor:pointer}
+  .seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+
+  .switch{width:40px;height:22px;border-radius:99px;background:var(--track);position:relative;cursor:pointer;border:none;flex:0 0 40px;transition:.15s}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.15s}
+  .switch.on{background:var(--accent)}
+  .switch.on::after{left:21px}
+
+  .note{display:flex;gap:11px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);
+        border-left:3px solid var(--accent);border-radius:var(--r-card);padding:12px 15px;
+        font-size:12.5px;line-height:1.6;margin-bottom:16px;box-shadow:var(--shadow)}
+  .note .ic{flex:0 0 16px;color:var(--accent);margin-top:1px}
+  .note b{color:var(--accent)}
+
+  .page{display:none}
+  .page.on{display:block}
+
+  /* 视频号候选卡 */
+  .cand{display:flex;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer}
+  .cand:last-child{border-bottom:none}
+  .cand:hover{background:var(--surface-2)}
+  .cand.sel{background:var(--accent-soft)}
+  .cover{width:104px;height:64px;border-radius:8px;flex:0 0 104px;background:linear-gradient(135deg,#dbe3f5,#c9d5ee);position:relative}
+  [data-theme="dark"] .cover{background:linear-gradient(135deg,#2c3446,#232a3a)}
+  .cover::after{content:"01:23";position:absolute;right:5px;bottom:5px;font-size:10.5px;background:rgba(0,0,0,.65);color:#fff;padding:1px 5px;border-radius:4px}
+
+  .tag{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  /* ============ 扩展弹窗（独立画布，与桌面端同一套 token） ============ */
+  .ext{
+    position:fixed;right:30px;top:26px;width:396px;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--r-win);box-shadow:var(--shadow-pop);
+    overflow:hidden;display:none;flex-direction:column;max-height:calc(100vh - 52px);
+  }
+  .ext.on{display:flex}
+  .ext-h{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;
+         font-weight:650;font-size:13px;background:var(--titlebar-bg);flex:0 0 auto}
+  .ext-h .logo{width:18px;height:18px;border-radius:5px}
+  .iconbtn{
+    width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:none;color:var(--text-2);
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s;
+  }
+  .iconbtn:hover{background:var(--surface);border-color:var(--border);color:var(--text)}
+  .iconbtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .ext-body{overflow-y:auto;flex:1 1 auto;min-height:0}
+  .ext-body::-webkit-scrollbar{width:9px}
+  .ext-body::-webkit-scrollbar-thumb{background:var(--track);border-radius:6px;border:3px solid var(--surface)}
+  .ext-f{display:flex;gap:8px;padding:11px 14px;border-top:1px solid var(--border);background:var(--surface-2);flex:0 0 auto}
+  .ext-f .btn{flex:1;text-align:center;padding:9px 0}
+
+  /* 标签页：候选 / 任务 / 设置 —— 三者分开，不混在一屏 */
+  .ext-tabs{display:flex;align-items:center;gap:2px;padding:0 8px;border-bottom:1px solid var(--border);
+            background:var(--surface);flex:0 0 auto}
+  .ext-tabs button{
+    font:inherit;font-size:12.5px;padding:9px 12px;border:none;background:none;color:var(--text-2);
+    cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;
+  }
+  .ext-tabs button:hover{color:var(--text)}
+  .ext-tabs button.on{color:var(--accent);font-weight:600;border-bottom-color:var(--accent)}
+  .ext-tabs .cnt{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:var(--r-pill);
+                 background:var(--track);color:var(--text-2)}
+  .ext-tabs button.on .cnt{background:var(--accent-soft);color:var(--accent)}
+
+  /* 设置页：标准设置项，一行一项，说明只留一句 */
+  .srow{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--border)}
+  .srow:last-child{border-bottom:none}
+  .srow .sk{flex:1;min-width:0}
+  .srow .st{font-size:13px;font-weight:600;display:flex;align-items:center;gap:5px}
+  .srow .sd{font-size:11.5px;color:var(--text-3);margin-top:2px;line-height:1.5}
+  /* ⓘ 提示图标：SVG 矢量绘制，不用字体字符拼（字体基线会让字母偏出圆圈） */
+  .info-svg{width:15px;height:15px;flex:0 0 15px;color:var(--text-3);cursor:help;transition:color .12s;
+            display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+            border-radius:50%}
+  .info-svg:hover,.info-svg:focus-visible{color:var(--accent)}
+  .info-svg:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .info-svg svg{width:15px;height:15px;display:block}
+
+  /* 自定义 tooltip：position:fixed 是为了不被弹窗的 overflow 裁掉
+     （原生 title 提示在窄容器里会被裁、延迟长且样式不可控，禁止用于正文说明） */
+  .tipwrap{position:relative;display:inline-flex;align-items:center}
+  .tip{
+    position:fixed;z-index:120;width:262px;max-width:calc(100vw - 24px);
+    background:#23262c;color:#fff;border-radius:8px;padding:9px 11px;
+    font-size:11.5px;line-height:1.6;font-weight:400;text-align:left;
+    box-shadow:0 12px 32px rgba(0,0,0,.32);
+    opacity:0;visibility:hidden;transform:translateY(3px);transition:opacity .14s,transform .14s,visibility .14s;
+    pointer-events:none;white-space:normal;
+  }
+  .tip::after{
+    content:"";position:absolute;left:var(--tip-arrow, 18px);bottom:-5px;
+    width:9px;height:9px;background:#23262c;transform:rotate(45deg);border-radius:1px;
+  }
+  .tip.show{opacity:1;visibility:visible;transform:translateY(0)}
+  .tip.below::after{bottom:auto;top:-5px}
+  [data-theme="dark"] .tip{background:#3a3f4a}
+  [data-theme="dark"] .tip::after{background:#3a3f4a}
+  .sect{padding:9px 14px 4px;font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.4px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+
+  .ci{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+  .ci:last-child{border-bottom:none}
+  .ci:hover{background:var(--surface-2)}
+  .ci.on{background:var(--accent-soft)}
+  .cthumb{width:74px;height:46px;border-radius:7px;flex:0 0 74px;background:linear-gradient(135deg,#dbe3f5,#c9d5ee);position:relative}
+  [data-theme="dark"] .cthumb{background:linear-gradient(135deg,#2c3446,#232a3a)}
+  .cthumb i{position:absolute;right:4px;bottom:4px;font-size:10px;font-style:normal;background:rgba(0,0,0,.66);color:#fff;padding:0 4px;border-radius:4px}
+  .cgrow{flex:1;min-width:0}
+  .cttl{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+  .cmeta{font-size:11.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* 托盘通知演示：系统原生外观，不跟随本应用主题 */
+  .toast{
+    position:fixed;right:26px;bottom:24px;width:324px;background:rgba(250,250,250,.97);color:#1a1d21;
+    border-radius:12px;box-shadow:0 16px 40px rgba(16,24,40,.3);padding:13px 15px;display:flex;gap:11px;
+    border:1px solid rgba(0,0,0,.07);z-index:98;
+  }
+  .toast .ti{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2f6df6,#7aa7ff);flex:0 0 30px}
+  .toast .tt{font-weight:650;font-size:13px}
+  .toast .tb{font-size:11.5px;color:#6b7280;margin-top:2px}
+  .toast .tx{position:absolute;right:10px;top:8px;color:#9aa1ac;font-size:15px;cursor:pointer;line-height:1}
+
+  /* 设计稿演示控制条（不属于产品界面） */
+  .demo{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;display:flex;gap:8px;align-items:center;
+        background:rgba(20,22,26,.9);color:#fff;padding:7px 12px;border-radius:999px;font-size:12px;z-index:99;
+        box-shadow:0 8px 26px rgba(0,0,0,.36)}
+  .demo button{font:12px/1 inherit;border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.1);color:#fff;
+               padding:5px 10px;border-radius:999px;cursor:pointer}
+  .demo button:hover{background:rgba(255,255,255,.2)}
+  .demo .lab{opacity:.72;padding:0 2px}
+  .demo .sep2{width:1px;height:16px;background:rgba(255,255,255,.24)}
+</style>
+</head>
+<body>
+
+<!-- ==================== 主窗口 ==================== -->
+<div class="win" id="win">
+  <div class="titlebar">
+    <div class="logo"></div>
+    <span class="brand">留底下载器</span>
+    <span class="ver">1.0.0</span>
+    <div class="spacer"></div>
+    <span class="pill"><span class="dot off"></span>Eagle 未连接 · 下载可用</span>
+  </div>
+
+  <div class="body">
+    <!-- 侧栏 -->
+    <nav class="side">
+      <button class="nav on" data-p="p1">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>下载任务</button>
+      <button class="nav" data-p="p2">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>视频号</button>
+      <button class="nav" data-p="p3">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>IDM 导入</button>
+      <button class="nav" data-p="p4">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/></svg>设置</button>
+      <div class="gap"></div>
+      <div class="sep"></div>
+      <button class="nav" data-p="p5">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5m0 3h.01M12 3l9 16H3z"/></svg>导出诊断</button>
+      <button class="nav" data-p="p6">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M4 9h16M8 5v4"/></svg>扩展弹窗演示</button>
+    </nav>
+
+    <main class="main">
+
+      <!-- ===== 下载任务 ===== -->
+      <section class="page on" id="p1">
+        <h1>下载任务</h1>
+        <div class="sub">连续滚动，无分页；进度由后端推送实时更新</div>
+
+        <div class="stat">
+          <div class="s"><div class="n">3</div><div class="l">进行中</div></div>
+          <div class="s g"><div class="n">128</div><div class="l">已完成</div></div>
+          <div class="s r"><div class="n">2</div><div class="l">失败</div></div>
+          <div class="s n"><div class="n">1.24 GB</div><div class="l">程序缓存</div></div>
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">小米澎湃 OS4 宣发视频 · 完整版</div>
+                <div class="meta">bilibili.com · 1080P · MP4</div>
+                <div class="bar"><i style="width:62%"></i></div>
+                <div class="meta">下载中 · 12.4 MB / 20.1 MB · 预计还需 8 秒</div>
+                <div class="acts"><button class="btn danger">停止</button></div>
+              </div>
+              <span class="badge b-run">下载中</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">Morph 幻相 · 产品演示</div>
+                <div class="meta">youtube.com · 1080P · MP4 · 已合并双轨</div>
+                <div class="bar"><i class="ok" style="width:100%"></i></div>
+                <div class="mono">D:\Users\MSI\Downloads\留底下载器\已完成\Morph 幻相.mp4</div>
+                <div class="acts">
+                  <button class="btn">打开文件夹</button>
+                  <button class="btn">打开文件</button>
+                  <button class="btn">导入 Eagle</button>
+                  <button class="btn danger">删除记录</button>
+                </div>
+              </div>
+              <span class="badge b-ok">已完成</span>
+            </div>
+          </div>
+
+          <!-- 浏览器中转中的任务：P6 路径 -->
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">YouTube 登录后才可看的视频</div>
+                <div class="meta">youtube.com · 浏览器下载模式 · 正在接收浏览器转发的数据</div>
+                <div class="bar"><i style="width:34%"></i></div>
+                <div class="meta">已接收 38.2 MB / 112 MB · 速度取决于浏览器侧读取</div>
+                <div class="acts">
+                  <button class="btn danger">停止</button>
+                  <span class="tag">浏览器中转</span>
+                </div>
+              </div>
+              <span class="badge b-run">接收中</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">某个视频</div>
+                <div class="meta">失败原因：原画地址返回 403，已重试 5 次</div>
+                <div class="acts">
+                  <button class="btn pri">重试</button>
+                  <button class="btn danger">删除记录</button>
+                </div>
+              </div>
+              <span class="badge b-err">失败</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">等待中的任务</div>
+                <div class="meta">等待重试 · 第 2 / 5 次 · 30 秒后</div>
+              </div>
+              <span class="badge b-wait">排队中</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 视频号 ===== -->
+      <section class="page" id="p2">
+        <h1>视频号</h1>
+        <div class="sub">捕获默认关闭，只能由你明确启动</div>
+
+        <div class="note">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          <div><b>浏览器下载模式不适用于视频号。</b>该模式取到的是加密字节，缺少会话密钥无法解密，因此这里始终走捕获链路。</div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="field">
+            <div class="k">捕获状态</div>
+            <div class="v"><span class="pill"><span class="dot on"></span>捕获中 · 端口 47200</span></div>
+          </div>
+          <div class="field">
+            <div class="k">根证书</div>
+            <div class="v"><span class="meta">已安装 · 指纹 A1B2…</span><button class="btn">重新安装</button></div>
+          </div>
+          <div class="field">
+            <div class="k">画质策略</div>
+            <div class="v">
+              <span class="seg"><button class="on">优先可验证原画</button><button>最高明确档</button></span>
+            </div>
+          </div>
+          <div class="field">
+            <div class="k">操作</div>
+            <div class="v"><button class="btn danger">停止捕获</button><span class="meta">停止后已提交的任务继续执行</span></div>
+          </div>
+        </div>
+
+        <div class="sub" style="margin:0 0 8px">候选 <span class="tag">3</span> · 当前：Morph 幻相</div>
+        <div class="card">
+          <div class="cand sel">
+            <div class="cover"></div>
+            <div class="grow">
+              <div class="ttl">Morph 幻相 · 小米澎湃 OS4</div>
+              <div class="meta">作者名 · 原画可验证 · 1920×1080</div>
+            </div>
+            <span class="badge b-ok">原画</span>
+          </div>
+          <div class="cand">
+            <div class="cover"></div>
+            <div class="grow">
+              <div class="ttl">同一视频 · 另一条转发</div>
+              <div class="meta">作者名 · 明确档 720P</div>
+            </div>
+            <span class="badge b-mute">720P</span>
+          </div>
+          <div class="cand">
+            <div class="cover"></div>
+            <div class="grow">
+              <div class="ttl">未通过身份绑定的候选</div>
+              <div class="meta">证据冲突，已拒绝激活</div>
+            </div>
+            <span class="badge b-err">已拒绝</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== IDM 导入 ===== -->
+      <section class="page" id="p3">
+        <h1>IDM 导入</h1>
+        <div class="sub">hook 只投文件不碰库；等待 Eagle 期间不阻塞下载队列</div>
+
+        <div class="card">
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">IDM 抓到的课程录像.mp4</div>
+                <div class="meta">D:\Downloads\IDM\课程录像.mp4 · 2.1 GB</div>
+                <div class="acts">
+                  <button class="btn pri">导入 Eagle</button>
+                  <button class="btn">打开文件</button>
+                  <button class="btn">打开网页</button>
+                  <button class="btn">附加来源</button>
+                  <button class="btn danger">清理记录</button>
+                </div>
+              </div>
+              <span class="badge b-run">导入中</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">素材合集.zip</div>
+                <div class="meta">Eagle 未连接 · 已保留本地文件，恢复后无需重新下载</div>
+              </div>
+              <span class="badge b-wait">等待 Eagle</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">重复内容.mp4</div>
+                <div class="meta">内容去重命中 · 已跳过导入 · 本机文件保留</div>
+              </div>
+              <span class="badge b-mute">已跳过</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 设置 ===== -->
+      <section class="page" id="p4">
+        <h1>设置</h1>
+        <div class="sub">配置的权威来源是本地数据库，不另设配置文件</div>
+
+        <div class="note">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          <div><b>这里没有「浏览器下载模式」开关。</b>该开关属于单次下载的临时选择，放在<b>扩展弹窗的设置页</b>里——桌面端不重复提供，避免两处状态不一致。</div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div class="field">
+            <div class="k">网络代理</div>
+            <div class="v">
+              <span class="seg"><button>自动</button><button class="on">直连</button><button>手动</button></span>
+              <span class="meta">Eagle、本机 API 与回环通信始终直连</span>
+            </div>
+          </div>
+          <div class="field">
+            <div class="k">手动代理地址</div>
+            <div class="v"><input type="text" value="127.0.0.1:7890" disabled></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div class="field">
+            <div class="k">程序缓存</div>
+            <div class="v"><span class="meta">临时 812 MB · 预览 96 MB · 旧日志 3 MB</span><button class="btn">立即清理</button></div>
+          </div>
+          <div class="field">
+            <div class="k">自动保留期</div>
+            <div class="v"><select><option>30 天</option><option>7 天</option><option>0（关闭自动清理）</option></select>
+              <span class="meta">不影响手动清理，也不进入「已完成」目录</span></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div class="field">
+            <div class="k">外观</div>
+            <div class="v"><span class="seg"><button class="on" onclick="setTheme('light')">浅色</button><button onclick="setTheme('dark')">深色</button></span></div>
+          </div>
+          <div class="field">
+            <div class="k">下载并发</div>
+            <div class="v"><select><option>3</option><option>2</option><option>1</option></select><span class="meta">阶段 3 用实测值定档</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field">
+            <div class="k">版本</div>
+            <div class="v"><span class="meta">1.0.0</span><button class="btn">检查更新</button></div>
+          </div>
+          <div class="field">
+            <div class="k">关于</div>
+            <div class="v"><span class="meta">留底下载器 · 想留的，留个底。 · 许可证与源码获取说明</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 导出诊断 ===== -->
+      <section class="page" id="p5">
+        <h1>导出诊断</h1>
+        <div class="sub">必须经秘密过滤：不含 Cookie、签名 URL、解密键</div>
+        <div class="card">
+          <div class="field">
+            <div class="k">快照内容</div>
+            <div class="v"><span class="meta">版本与构建号 · 数据库结构版本 · 代理状态 · 媒体工具版本与路径 · 适配器状态 · 最近日志（已过滤）</span></div>
+          </div>
+          <div class="field">
+            <div class="k">操作</div>
+            <div class="v"><button class="btn pri">导出诊断包</button><span class="meta">导出后自动打开所在文件夹</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 扩展弹窗演示入口 ===== -->
+      <section class="page" id="p6">
+        <h1>扩展弹窗</h1>
+        <div class="sub">与桌面端共用同一套 token；列表遵守 P-101 ~ P-110</div>
+
+        <div class="note">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          <div>弹窗右侧已打开。用底部控制条切换它的<b>候选 / 任务 / 设置</b>三个标签页。<b>浏览器下载模式开关只在「设置」里</b>，这是它唯一的存在位置。</div>
+        </div>
+
+        <div class="card">
+          <div class="field">
+            <div class="k">候选</div>
+            <div class="v"><span class="meta">单页只放候选，底部为「下载到电脑 / 下载到 Eagle」</span></div>
+          </div>
+          <div class="field">
+            <div class="k">任务</div>
+            <div class="v"><span class="meta">单页只放任务与进度，底部为「打开下载文件夹 / 刷新」</span></div>
+          </div>
+          <div class="field">
+            <div class="k">设置</div>
+            <div class="v"><span class="meta">标准设置项：一行一项，说明只留一句，详细解释收进 ⓘ</span></div>
+          </div>
+          <div class="field">
+            <div class="k">不得出现</div>
+            <div class="v"><span class="meta">媒体 URL、解密信息、Cookie、签名参数</span></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ==================== 扩展弹窗（独立画布） ==================== -->
+<div class="ext on" id="ext">
+  <div class="ext-h">
+    <div class="logo"></div>
+    <span>留底下载器</span>
+    <div class="spacer"></div>
+    <span class="pill" style="font-size:11px;padding:3px 8px"><span class="dot on"></span>已连接</span>
+  </div>
+
+  <!-- 三个视图分开：候选 / 任务 / 设置 -->
+  <div class="ext-tabs">
+    <button class="on" data-tab="cand" onclick="extTab('cand')">候选 <span class="cnt">3</span></button>
+    <button data-tab="task" onclick="extTab('task')">任务 <span class="cnt">2</span></button>
+    <button data-tab="set" onclick="extTab('set')">设置</button>
+  </div>
+
+  <!-- ---- 候选 ---- -->
+  <div class="ext-view" id="tabCand" style="display:flex;flex-direction:column;min-height:0;flex:1 1 auto">
+    <div class="ext-body">
+      <div class="ci on">
+        <div class="cthumb"><i>01:23</i></div>
+        <div class="cgrow">
+          <div class="cttl">Morph 幻相 · 产品演示</div>
+          <div class="cmeta">1080P · 视频+音频 · MP4 · 112 MB</div>
+        </div>
+      </div>
+      <div class="ci">
+        <div class="cthumb"><i>01:23</i></div>
+        <div class="cgrow">
+          <div class="cttl">Morph 幻相 · 产品演示</div>
+          <div class="cmeta">720P · 视频+音频 · MP4 · 48 MB</div>
+        </div>
+      </div>
+      <div class="ci">
+        <div class="cthumb"><i>01:23</i></div>
+        <div class="cgrow">
+          <div class="cttl">仅音频</div>
+          <div class="cmeta">128 kbps · M4A · 3.2 MB</div>
+        </div>
+      </div>
+    </div>
+    <div class="ext-f">
+      <button class="btn pri">下载到电脑</button>
+      <button class="btn">下载到 Eagle</button>
+    </div>
+  </div>
+
+  <!-- ---- 任务 ---- -->
+  <div class="ext-view" id="tabTask" style="display:none;flex-direction:column;min-height:0;flex:1 1 auto">
+    <div class="ext-body">
+      <div class="ci" style="cursor:default">
+        <div class="cgrow">
+          <div class="cttl">小米澎湃 OS4 宣发视频</div>
+          <div class="bar" style="margin:7px 0 0"><i style="width:62%"></i></div>
+          <div class="cmeta" style="margin-top:4px">12.4 MB / 20.1 MB</div>
+        </div>
+        <span class="badge b-run">62%</span>
+      </div>
+      <div class="ci" style="cursor:default">
+        <div class="cgrow">
+          <div class="cttl">YouTube 登录后才可看的视频</div>
+          <div class="bar" style="margin:7px 0 0"><i style="width:34%"></i></div>
+          <div class="cmeta" style="margin-top:4px">浏览器中转 · 38.2 MB / 112 MB</div>
+        </div>
+        <span class="badge b-run">34%</span>
+      </div>
+      <div class="ci" style="cursor:default">
+        <div class="cgrow">
+          <div class="cttl">Morph 幻相 · 产品演示</div>
+          <div class="cmeta" style="margin-top:3px">D:\Downloads\留底下载器\已完成</div>
+        </div>
+        <span class="badge b-ok">已完成</span>
+      </div>
+      <div class="ci" style="cursor:default">
+        <div class="cgrow">
+          <div class="cttl">某个视频</div>
+          <div class="cmeta" style="margin-top:3px">原画地址返回 403 · 已重试 5 次</div>
+        </div>
+        <span class="badge b-err">失败</span>
+      </div>
+    </div>
+    <div class="ext-f">
+      <button class="btn">打开下载文件夹</button>
+      <button class="btn">刷新</button>
+    </div>
+  </div>
+
+  <!-- ---- 设置 ---- -->
+  <div class="ext-view" id="tabSet" style="display:none;flex-direction:column;min-height:0;flex:1 1 auto">
+    <div class="ext-body">
+      <div class="sect">下载</div>
+
+      <div class="srow">
+        <div class="sk">
+          <div class="st">浏览器下载模式
+            <span class="tipwrap">
+              <span class="info-svg" tabindex="0" role="button"
+                    aria-label="浏览器下载模式说明" data-tip="开启后，改由浏览器用你当前的登录状态去取文件，再转发给软件保存。用于某些站点（如 YouTube 的登录限定内容）对链接校验严格、软件直接取会失败的场景。代价：大文件比软件直接下载慢，且需保持浏览器打开。视频号不适用。">
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6.6" stroke="currentColor" stroke-width="1.3"/>
+                  <circle cx="8" cy="4.9" r="0.95" fill="currentColor"/>
+                  <path d="M8 7.1v4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </span>
+            </span>
+          </div>
+          <div class="sd" id="bdmHint">关闭 · 由软件下载</div>
+        </div>
+        <button class="switch" id="bdm" onclick="toggleBDM()" aria-label="浏览器下载模式"></button>
+      </div>
+
+      <div class="sect">连接</div>
+
+      <div class="srow">
+        <div class="sk">
+          <div class="st">桌面端</div>
+          <div class="sd">127.0.0.1:47652 · 已连接</div>
+        </div>
+        <span class="pill" style="font-size:11px"><span class="dot on"></span>正常</span>
+      </div>
+
+      <div class="srow">
+        <div class="sk">
+          <div class="st">版本</div>
+          <div class="sd">扩展 1.0.0 · 适配器 3 个</div>
+        </div>
+      </div>
+
+      <div class="sect">诊断</div>
+
+      <div class="srow">
+        <div class="sk">
+          <div class="st">诊断信息</div>
+          <div class="sd">导出连接状态、适配器版本与最近日志</div>
+        </div>
+        <button class="btn" style="font-size:12px;padding:5px 10px">导出</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 全局 tooltip 层（fixed 定位，不被弹窗裁切） -->
+<div class="tip" id="tip" role="tooltip" aria-hidden="true"></div>
+
+<!-- 托盘通知演示 -->
+<div class="toast" id="toast" style="display:none">
+  <div class="ti"></div>
+  <div class="grow">
+    <div class="tt">下载完成</div>
+    <div class="tb">Morph 幻相 · 产品演示.mp4 已保存到「已完成」</div>
+    <div class="tb" style="color:#2f6df6;margin-top:3px">点击打开所在文件夹</div>
+  </div>
+  <span class="tx" onclick="document.getElementById('toast').style.display='none'">×</span>
+</div>
+
+<!-- 演示控制 -->
+<div class="demo">
+  <span class="lab">主题</span>
+  <button onclick="setTheme('light')" id="thLight">浅色</button>
+  <button onclick="setTheme('dark')" id="thDark">深色</button>
+  <span class="sep2"></span>
+  <button onclick="toggleExt()" id="btnExt">隐藏扩展弹窗</button>
+  <button onclick="extTab('cand')">弹窗·候选</button>
+  <button onclick="extTab('task')">弹窗·任务</button>
+  <button onclick="extTab('set')">弹窗·设置</button>
+  <span class="sep2"></span>
+  <button onclick="document.getElementById('toast').style.display='flex'">托盘通知</button>
+</div>
+
+<script>
+  function setTheme(t){
+    document.documentElement.dataset.theme = t;
+    document.getElementById('thLight').style.opacity = (t === 'light') ? 1 : .5;
+    document.getElementById('thDark').style.opacity = (t === 'dark') ? 1 : .5;
+  }
+  /* 弹窗三个视图：候选 / 任务 / 设置 —— 互斥显示 */
+  function extTab(name){
+    var map = { cand:'tabCand', task:'tabTask', set:'tabSet' };
+    Object.keys(map).forEach(function(k){
+      document.getElementById(map[k]).style.display = (k === name) ? 'flex' : 'none';
+    });
+    document.querySelectorAll('.ext-tabs button').forEach(function(b){
+      b.classList.toggle('on', b.dataset.tab === name);
+    });
+  }
+  function toggleExt(){
+    var ext = document.getElementById('ext');
+    var on = ext.classList.toggle('on');
+    document.getElementById('btnExt').textContent = on ? '隐藏扩展弹窗' : '显示扩展弹窗';
+  }
+  function toggleBDM(){
+    var el = document.getElementById('bdm');
+    el.classList.toggle('on');
+    document.getElementById('bdmHint').textContent = el.classList.contains('on')
+      ? '开启 · 由浏览器取文件后转发'
+      : '关闭 · 由软件下载';
+  }
+  document.querySelectorAll('.nav').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.nav').forEach(function(n){ n.classList.remove('on'); });
+      btn.classList.add('on');
+      document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('on'); });
+      var target = document.getElementById(btn.dataset.p);
+      if (target){ target.classList.add('on'); }
+      if (btn.dataset.p === 'p6'){ document.getElementById('ext').classList.add('on'); }
+    });
+  });
+  document.querySelectorAll('.cand').forEach(function(c){
+    c.addEventListener('click', function(){
+      c.parentElement.querySelectorAll('.cand').forEach(function(x){ x.classList.remove('sel'); });
+      c.classList.add('sel');
+    });
+  });
+  document.querySelectorAll('.ci:not([style*="cursor:default"])').forEach(function(c){
+    c.addEventListener('click', function(){
+      c.parentElement.querySelectorAll('.ci').forEach(function(x){ x.classList.remove('on'); });
+      c.classList.add('on');
+    });
+  });
+  document.querySelectorAll('.seg').forEach(function(s){
+    s.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        s.querySelectorAll('button').forEach(function(x){ x.classList.remove('on'); });
+        b.classList.add('on');
+      });
+    });
+  });
+  setTheme('light');
+  extTab('cand');
+
+  /* ---- 自定义 tooltip ----
+     用 data-tip 承载说明，position:fixed 定位：扩展弹窗是窄小容器，
+     原生 title 提示会被容器裁切、延迟长且样式不可控。 */
+  (function(){
+    var tip = document.getElementById('tip');
+    var cur = null;
+    function show(el){
+      var text = el.dataset.tip;
+      if (!text) return;
+      cur = el;
+      tip.textContent = text;
+      tip.style.left = '0px'; tip.style.top = '0px';
+      tip.classList.add('show');
+      var r = el.getBoundingClientRect();
+      var t = tip.getBoundingClientRect();
+      var margin = 10;
+      var left = r.left + r.width / 2 - t.width / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - t.width - margin));
+      var above = r.top - t.height - 10;
+      var below = above < margin;
+      tip.style.left = left + 'px';
+      tip.style.top = (below ? r.bottom + 10 : above) + 'px';
+      tip.classList.toggle('below', below);
+      /* 箭头对准图标中心，并夹在 tooltip 圆角内 */
+      var arrow = r.left + r.width / 2 - left;
+      tip.style.setProperty('--tip-arrow', Math.max(10, Math.min(arrow, t.width - 20)) + 'px');
+    }
+    function hide(){
+      cur = null;
+      tip.classList.remove('show');
+      tip.setAttribute('aria-hidden', 'true');
+    }
+    document.querySelectorAll('[data-tip]').forEach(function(el){
+      el.addEventListener('mouseenter', function(){ show(el); tip.setAttribute('aria-hidden','false'); });
+      el.addEventListener('mouseleave', hide);
+      el.addEventListener('focus', function(){ show(el); tip.setAttribute('aria-hidden','false'); });
+      el.addEventListener('blur', hide);
+    });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') hide(); });
+    window.addEventListener('scroll', hide, true);
+  })();
+</script>
+</body>
+</html>

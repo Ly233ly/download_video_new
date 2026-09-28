@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<title>留底下载器 · 界面设计稿</title>
+<style>
+  /* ============ 主题变量 ============ */
+  :root{
+    --bg:#f4f5f7; --surface:#ffffff; --surface-2:#fafbfc; --border:#e6e8ec;
+    --text:#1a1d21; --text-2:#6b7280; --text-3:#9aa1ac;
+    --accent:#2f6df6; --accent-soft:#eaf0fe;
+    --ok:#12a150; --warn:#d97706; --err:#dc2626;
+    --track:#eceef2; --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 12px rgba(16,24,40,.06);
+    --radius:10px;
+  }
+  [data-theme="dark"]{
+    --bg:#16181d; --surface:#1e2126; --surface-2:#23262c; --border:#2e323a;
+    --text:#e8eaed; --text-2:#9aa1ac; --text-3:#6b7280;
+    --accent:#5b8dff; --accent-soft:#1e2740;
+    --ok:#34d399; --warn:#fbbf24; --err:#f87171;
+    --track:#2a2e36; --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font:14px/1.55 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--text); height:100vh; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; padding:28px;
+    transition:background .2s,color .2s;
+  }
+
+  /* ============ 窗口 ============ */
+  .win{
+    width:1180px; height:720px; background:var(--surface); border-radius:14px;
+    box-shadow:0 12px 40px rgba(16,24,40,.16), 0 0 0 1px var(--border);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .titlebar{
+    height:48px; flex:0 0 48px; display:flex; align-items:center; gap:10px;
+    padding:0 16px; border-bottom:1px solid var(--border); background:var(--surface);
+  }
+  .logo{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#7aa7ff);flex:0 0 20px}
+  .brand{font-weight:650;letter-spacing:.2px}
+  .ver{color:var(--text-3);font-size:12px}
+  .spacer{flex:1}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px 10px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--text-3)}
+  .dot.off{background:var(--warn)}
+
+  .body{flex:1;display:flex;min-height:0}
+  /* ============ 侧栏 ============ */
+  .side{
+    width:196px;flex:0 0 196px;border-right:1px solid var(--border);
+    background:var(--surface-2);padding:12px 10px;display:flex;flex-direction:column;gap:2px;
+  }
+  .nav{
+    display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;
+    color:var(--text-2);cursor:pointer;font-size:13.5px;border:none;background:none;
+    width:100%;text-align:left;font-family:inherit;transition:background .12s,color .12s;
+  }
+  .nav:hover{background:var(--surface);color:var(--text)}
+  .nav.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .nav .ic{width:16px;height:16px;flex:0 0 16px;opacity:.9}
+  .side .gap{flex:1}
+  .side .sep{height:1px;background:var(--border);margin:8px 4px}
+
+  /* ============ 主区 ============ */
+  .main{flex:1;min-width:0;overflow-y:auto;padding:20px 24px 28px}
+  .main::-webkit-scrollbar{width:10px}
+  .main::-webkit-scrollbar-thumb{background:var(--track);border-radius:6px;border:3px solid var(--surface)}
+  h1{font-size:19px;font-weight:650;margin-bottom:3px;letter-spacing:.2px}
+  .sub{color:var(--text-3);font-size:12.5px;margin-bottom:16px}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .row{padding:14px 16px;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .rowline{display:flex;align-items:flex-start;gap:12px}
+  .thumb{width:64px;height:40px;border-radius:6px;flex:0 0 64px;background:linear-gradient(135deg,#dbe3f5,#c9d5ee)}
+  [data-theme="dark"] .thumb{background:linear-gradient(135deg,#2c3446,#232a3a)}
+  .grow{flex:1;min-width:0}
+  .ttl{font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta{color:var(--text-3);font-size:12.5px}
+  .mono{font-family:"Cascadia Mono",Consolas,monospace;font-size:12px;color:var(--text-2)}
+
+  .badge{font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600;white-space:nowrap}
+  .b-run{background:var(--accent-soft);color:var(--accent)}
+  .b-ok{background:rgba(18,161,80,.12);color:var(--ok)}
+  .b-err{background:rgba(220,38,38,.1);color:var(--err)}
+  .b-wait{background:rgba(217,119,6,.12);color:var(--warn)}
+
+  .bar{height:6px;background:var(--track);border-radius:99px;overflow:hidden;margin:9px 0 5px}
+  .bar > i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+  .bar > i.ok{background:var(--ok)}
+
+  .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .btn{
+    font:inherit;font-size:12.5px;padding:6px 12px;border-radius:7px;cursor:pointer;
+    border:1px solid var(--border);background:var(--surface);color:var(--text);transition:.12s;
+  }
+  .btn:hover{background:var(--surface-2);border-color:var(--text-3)}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.pri:hover{filter:brightness(1.06)}
+  .btn.danger{color:var(--err);border-color:rgba(220,38,38,.3)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  .stat{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .stat .s{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow)}
+  .stat .n{font-size:21px;font-weight:680;letter-spacing:.3px}
+  .stat .l{color:var(--text-3);font-size:12px;margin-top:1px}
+
+  .field{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border)}
+  .field:last-child{border-bottom:none}
+  .field .k{width:132px;flex:0 0 132px;color:var(--text-2);font-size:13px}
+  .field .v{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  input[type=text],select{
+    font:inherit;font-size:13px;padding:7px 11px;border-radius:7px;border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text);min-width:210px;
+  }
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface-2)}
+  .seg button{font:inherit;font-size:12.5px;padding:6px 14px;border:none;background:none;color:var(--text-2);cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .switch{width:40px;height:22px;border-radius:99px;background:var(--track);position:relative;cursor:pointer;flex:0 0 40px;transition:.15s}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.15s}
+  .switch.on{background:var(--accent)}
+  .switch.on::after{left:21px}
+
+  .page{display:none}
+  .page.on{display:block}
+
+  /* 视频号候选卡 */
+  .cand{display:flex;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border)}
+  .cand:last-child{border-bottom:none}
+  .cover{width:104px;height:64px;border-radius:8px;flex:0 0 104px;background:linear-gradient(135deg,#dbe3f5,#c9d5ee);position:relative}
+  [data-theme="dark"] .cover{background:linear-gradient(135deg,#2c3446,#232a3a)}
+  .cover::after{content:"01:23";position:absolute;right:5px;bottom:5px;font-size:10.5px;background:rgba(0,0,0,.65);color:#fff;padding:1px 5px;border-radius:4px}
+
+  /* 扩展弹窗 */
+  .ext{
+    position:fixed;right:30px;top:26px;width:396px;background:var(--surface);
+    border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 48px rgba(16,24,40,.22);
+    overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 52px);
+  }
+  .ext-h{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-weight:640;font-size:13px;background:var(--surface-2);flex:0 0 auto}
+  .ext-tabs{display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--border);background:var(--surface-2);flex:0 0 auto}
+  .ext-tabs button{
+    font:inherit;font-size:12.5px;padding:6px 12px;border:none;background:none;color:var(--text-2);
+    cursor:pointer;border-radius:7px 7px 0 0;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;
+  }
+  .ext-tabs button.on{color:var(--accent);font-weight:600;border-bottom-color:var(--accent);background:var(--surface)}
+  .ext-tabs .tag{font-size:10.5px;padding:1px 6px}
+  .ext-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-2);flex:0 0 auto}
+  .ext-list{overflow-y:auto;flex:1 1 auto;min-height:0}
+  .ext-list::-webkit-scrollbar{width:9px}
+  .ext-list::-webkit-scrollbar-thumb{background:var(--track);border-radius:6px;border:3px solid var(--surface)}
+  .ci{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+  .ci:last-child{border-bottom:none}
+  .ci:hover{background:var(--surface-2)}
+  .ci.on{background:var(--accent-soft)}
+  .ci.off{opacity:.5}
+  .ci > input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex:0 0 auto;margin:0}
+  .cthumb{width:74px;height:46px;border-radius:7px;flex:0 0 74px;background:linear-gradient(135deg,#dbe3f5,#c9d5ee);position:relative}
+  [data-theme="dark"] .cthumb{background:linear-gradient(135deg,#2c3446,#232a3a)}
+  .cthumb i{position:absolute;right:4px;bottom:4px;font-size:10px;font-style:normal;background:rgba(0,0,0,.66);color:#fff;padding:0 4px;border-radius:4px}
+  .cgrow{flex:1;min-width:0}
+  .cttl{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+  .cmeta{font-size:11.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cbtn{font:inherit;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;flex:0 0 auto}
+  .cbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;flex:0 0 auto}
+  .chk input{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;margin:0}
+  .ext-note{padding:8px 14px;font-size:11px;color:var(--text-3);background:var(--surface-2);border-top:1px solid var(--border);line-height:1.55;flex:0 0 auto}
+  .ext-f{display:flex;gap:8px;padding:11px 14px;border-top:1px solid var(--border);background:var(--surface-2);flex:0 0 auto}
+  .ext-f .btn{flex:1;text-align:center;padding:9px 0}
+  .lbl{position:fixed;left:44px;bottom:36px;font-size:12px;color:var(--text-3)}
+  .tag{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <!-- 标题栏 -->
+  <div class="titlebar">
+    <div class="logo"></div>
+    <span class="brand">留底下载器</span>
+    <span class="ver">1.0.0</span>
+    <div class="spacer"></div>
+    <span class="pill"><span class="dot off"></span>Eagle 未连接 · 下载可用</span>
+    <button class="btn" onclick="toggleTheme()" style="padding:5px 10px">切换主题</button>
+  </div>
+
+  <div class="body">
+    <!-- 侧栏 -->
+    <nav class="side">
+      <button class="nav on" data-p="p1"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>下载任务</button>
+      <button class="nav" data-p="p2"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>视频号</button>
+      <button class="nav" data-p="p3"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>IDM 导入</button>
+      <button class="nav" data-p="p4"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/></svg>设置</button>
+      <div class="gap"></div>
+      <div class="sep"></div>
+      <button class="nav" data-p="p5"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5m0 3h.01M12 3l9 16H3z"/></svg>导出诊断</button>
+    </nav>
+
+    <!-- 主区 -->
+    <main class="main">
+
+      <!-- ===== 下载任务 ===== -->
+      <section class="page on" id="p1">
+        <h1>下载任务</h1>
+        <div class="sub">连续滚动，无分页；进度由后端推送实时更新</div>
+
+        <div class="stat">
+          <div class="s"><div class="n">3</div><div class="l">进行中</div></div>
+          <div class="s"><div class="n">128</div><div class="l">已完成</div></div>
+          <div class="s"><div class="n">2</div><div class="l">失败</div></div>
+          <div class="s"><div class="n">1.24 GB</div><div class="l">程序缓存</div></div>
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">小米澎湃 OS4 宣发视频 · 完整版</div>
+                <div class="meta">bilibili.com · 1080P · MP4</div>
+                <div class="bar"><i style="width:62%"></i></div>
+                <div class="meta">下载中 · 12.4 MB / 20.1 MB · 预计还需 8 秒</div>
+                <div class="acts"><button class="btn danger">停止</button></div>
+              </div>
+              <span class="badge b-run">下载中</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">Morph 幻相 · 产品演示</div>
+                <div class="meta">youtube.com · 原画 · MP4 · 合并双轨</div>
+                <div class="bar"><i class="ok" style="width:100%"></i></div>
+                <div class="mono">D:\Users\MSI\Downloads\留底下载器\已完成\Morph 幻相.mp4</div>
+                <div class="acts">
+                  <button class="btn">打开文件夹</button>
+                  <button class="btn">打开文件</button>
+                  <button class="btn">导入 Eagle</button>
+                  <button class="btn danger">删除记录</button>
+                </div>
+              </div>
+              <span class="badge b-ok">已完成</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">某个视频</div>
+                <div class="meta">失败原因：原画地址返回 403，已重试 5 次</div>
+                <div class="acts">
+                  <button class="btn pri">重试</button>
+                  <button class="btn danger">删除记录</button>
+                </div>
+              </div>
+              <span class="badge b-err">失败</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="rowline">
+              <div class="thumb"></div>
+              <div class="grow">
+                <div class="ttl">等待中的任务</div>
+                <div class="meta">等待重试 · 第 2/5 次 · 30 秒后</div>
+              </div>
+              <span class="badge b-wait">排队中</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 视频号 ===== -->
+      <section class="page" id="p2">
+        <h1>视频号</h1>
+        <div class="sub">捕获默认关闭，只能由你明确启动</div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="field">
+            <div class="k">状态</div>
+            <div class="v"><span class="pill"><span class="dot" style="background:var(--ok)"></span>捕获中 · 端口 47200</span></div>
+          </div>
+          <div class="field">
+            <div class="k">根证书</div>
+            <div class="v"><span class="meta">已安装（指纹 A1B2…）</span></div>
+          </div>
+          <div class="field">
+            <div class="k">操作</div>
+            <div class="v"><button class="btn danger">停止捕获</button>
+              <span class="meta">停止后已提交的任务继续执行</span></div>
+          </div>
+        </div>
+
+        <div class="sub" style="margin:0 0 8px">候选 <span class="tag">3</span> · 当前：Morph 幻相</div>
+        <div class="card">
+          <div class="cand">
+            <div class="cover"></div>
+            <div class="grow">
+              <div class="ttl">Morph 幻相 · 小米澎湃 OS4</div>
+              <div class="meta">作者名 · 原画可验证</div>
+              <div class="acts">
+                <button class="btn pri">原画</button>
+                <button class="btn">720p</button>
+                <button class="btn">下载</button>
+              </div>
+            </div>
+          </div>
+          <div class="cand">
+            <div class="cover"></div>
+            <div class="grow">
+              <div class="ttl">另一条视频</div>
+              <div class="meta">作者名 · 仅 720p（未发现可验证原画）</div>
+              <div class="acts"><button class="btn pri">720p</button><button class="btn">下载</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="meta" style="margin-top:10px">候选卡片不显示媒体 URL、签名与解密信息</div>
+      </section>
+
+      <!-- ===== IDM ===== -->
+      <section class="page" id="p3">
+        <h1>IDM 导入</h1>
+        <div class="sub">IDM 下载完成的文件自动入队并导入 Eagle</div>
+        <div class="card">
+          <div class="row">
+            <div class="rowline">
+              <div class="grow">
+                <div class="ttl">宣传片_final.mp4</div>
+                <div class="meta">来源：example.com/page · Eagle 已导入</div>
+                <div class="acts"><button class="btn">打开文件</button><button class="btn">打开网页</button><button class="btn danger">删除记录</button></div>
+              </div>
+              <span class="badge b-ok">已导入</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="rowline">
+              <div class="grow">
+                <div class="ttl">无来源的文件.mp4</div>
+                <div class="meta">没有可靠来源，仍会导入，但不猜测网址</div>
+                <div class="acts"><button class="btn">打开文件</button><button class="btn danger">删除记录</button></div>
+              </div>
+              <span class="badge b-ok">已导入</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="rowline">
+              <div class="grow">
+                <div class="ttl">等待导入.mp4</div>
+                <div class="meta">等待 Eagle 启动，将自动重试（不影响下载队列）</div>
+                <div class="acts"><button class="btn">重试</button></div>
+              </div>
+              <span class="badge b-wait">等待中</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="rowline">
+              <div class="grow">
+                <div class="ttl">重复内容.mp4</div>
+                <div class="meta">相同内容已导入过，已跳过并保留本机文件</div>
+              </div>
+              <span class="badge b-err">已跳过</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 设置 ===== -->
+      <section class="page" id="p4">
+        <h1>设置</h1>
+        <div class="sub">全部配置存在本地数据库，无配置文件、无账号</div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="field"><div class="k">网络代理</div>
+            <div class="v"><div class="seg"><button class="on">自动</button><button>直连</button><button>手动</button></div></div></div>
+          <div class="field"><div class="k">手动代理地址</div>
+            <div class="v"><input type="text" value="127.0.0.1:7890" disabled><span class="meta">仅“手动”模式可用</span></div></div>
+          <div class="field"><div class="k">下载并发数</div>
+            <div class="v"><input type="text" value="3" style="min-width:70px"></div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="field"><div class="k">程序缓存</div>
+            <div class="v"><span class="meta">临时 1.21 GB · 预览 28 MB · 旧日志 2 MB</span>
+              <button class="btn">立即清理</button></div></div>
+          <div class="field"><div class="k">自动清理保留期</div>
+            <div class="v"><input type="text" value="30" style="min-width:70px"><span class="meta">天（0 = 关闭自动清理）</span></div></div>
+          <div class="field"><div class="k">输出目录</div>
+            <div class="v"><span class="mono">D:\Downloads\留底下载器</span><button class="btn">更改</button></div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="field"><div class="k">浏览器下载模式</div>
+            <div class="v"><div class="switch"></div>
+              <span class="meta">开启后由浏览器自己下载媒体文件，再交给软件校验与归档。用于 YouTube 等链接握手严格的站点</span></div></div>
+          <div class="field"><div class="k">主题</div>
+            <div class="v"><div class="seg"><button class="on">浅色</button><button>深色</button></div></div></div>
+        </div>
+
+        <div class="card">
+          <div class="field"><div class="k">版本</div><div class="v"><span class="mono">1.0.0</span><button class="btn">检查更新</button></div></div>
+          <div class="field"><div class="k">关于</div><div class="v"><span class="meta">免费开源 · 许可证 · 源码获取方式</span></div></div>
+        </div>
+      </section>
+
+      <section class="page" id="p5">
+        <h1>导出诊断信息</h1>
+        <div class="sub">导出前会过滤 Cookie、签名 URL 与解密信息</div>
+        <div class="card"><div class="row">
+          <div class="meta">包含：版本、配置、任务状态摘要、错误计数、运行日志（已过滤）</div>
+          <div class="acts"><button class="btn pri">导出到桌面</button></div>
+        </div></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ===== 扩展弹窗（独立展示） ===== -->
+<div class="ext">
+  <div class="ext-h">
+    <div class="logo" style="width:16px;height:16px;flex:0 0 16px"></div>留底扩展
+    <div class="spacer"></div>
+    <span class="pill" style="font-size:11px;padding:3px 8px"><span class="dot off"></span>Eagle 未连接</span>
+  </div>
+
+  <div class="ext-tabs">
+    <button class="on" data-t="cand">候选 <span class="tag">5</span></button>
+    <button data-t="task">任务 <span class="tag">2</span></button>
+  </div>
+
+  <!-- 候选列表 -->
+  <div id="pane-cand" style="display:flex;flex-direction:column;min-height:0;flex:1 1 auto">
+    <div class="ext-bar">
+      <label class="chk"><input type="checkbox" id="allchk"> 全选</label>
+      <div class="spacer"></div>
+      <span>已选 <b id="seln">1</b> 项 · 页面共 5 个候选</span>
+    </div>
+    <div class="ext-list" id="clist">
+      <div class="ci on">
+        <input type="checkbox" class="pick" checked>
+        <div class="cthumb"><i>02:14</i></div>
+        <div class="cgrow">
+          <div class="cttl">小米澎湃 OS4 宣发视频 · 完整版</div>
+          <div class="cmeta">1080P · MP4 · 20.1 MB · 单文件直链</div>
+        </div>
+        <button class="cbtn">下载</button>
+      </div>
+      <div class="ci">
+        <input type="checkbox" class="pick">
+        <div class="cthumb"><i>04:31</i></div>
+        <div class="cgrow">
+          <div class="cttl">同名视频 · 原画</div>
+          <div class="cmeta">原画 · DASH 双轨 · 视频 84 MB + 音频 3.1 MB</div>
+        </div>
+        <button class="cbtn">下载</button>
+      </div>
+      <div class="ci">
+        <input type="checkbox" class="pick">
+        <div class="cthumb"><i>02:14</i></div>
+        <div class="cgrow">
+          <div class="cttl">同名视频 · 720P</div>
+          <div class="cmeta">720P · MP4 · 9.8 MB</div>
+        </div>
+        <button class="cbtn">下载</button>
+      </div>
+      <div class="ci">
+        <input type="checkbox" class="pick">
+        <div class="cthumb"><i>04:31</i></div>
+        <div class="cgrow">
+          <div class="cttl">同名视频 · 仅音频</div>
+          <div class="cmeta">音轨 · M4A · 3.1 MB</div>
+        </div>
+        <button class="cbtn">下载</button>
+      </div>
+      <div class="ci off">
+        <input type="checkbox" class="pick" disabled>
+        <div class="cthumb"></div>
+        <div class="cgrow">
+          <div class="cttl">直播回放（不支持）</div>
+          <div class="cmeta">直播流 · 无法确定长度，已自动排除</div>
+        </div>
+        <button class="cbtn" disabled>不可下载</button>
+      </div>
+    </div>
+    <div class="ext-note">
+      <b>列表性能设计</b>：只在候选真正变化时更新，不做定时全量重建；超过 50 行启用虚拟滚动，仅渲染可见行；缩略图按需加载并限制缓存条数；事件委托到容器，不逐行挂监听。
+    </div>
+  </div>
+
+  <!-- 任务列表 -->
+  <div id="pane-task" style="display:none;flex-direction:column;min-height:0;flex:1 1 auto">
+    <div class="ext-list">
+      <div class="ci" style="cursor:default">
+        <div class="cgrow">
+          <div class="cttl">Morph 幻相 · 产品演示</div>
+          <div class="bar" style="margin:7px 0 4px"><i style="width:62%"></i></div>
+          <div class="cmeta">下载中 · 12.4 MB / 20.1 MB</div>
+        </div>
+        <button class="cbtn">停止</button>
+      </div>
+      <div class="ci" style="cursor:default">
+        <div class="cgrow">
+          <div class="cttl">某个视频</div>
+          <div class="cmeta">失败 · 原画地址返回 403</div>
+        </div>
+        <button class="cbtn">重试</button>
+      </div>
+      <div class="ci" style="cursor:default">
+        <div class="cgrow">
+          <div class="cttl">已完成的视频</div>
+          <div class="cmeta">已完成 · 已导入 Eagle</div>
+        </div>
+      </div>
+    </div>
+    <div class="ext-note">任务进度由桌面端推送驱动，扩展不再每秒轮询；窗口未打开时完全不渲染。</div>
+  </div>
+
+  <div class="ext-f">
+    <button class="btn pri">下载到电脑</button>
+    <button class="btn">导入 Eagle</button>
+  </div>
+</div>
+<div class="lbl">静态设计稿 · 假数据 · 点击左侧导航切换页面 · 点右上「切换主题」看深色</div>
+
+<script>
+  document.querySelectorAll('.nav[data-p]').forEach(function(b){
+    b.onclick = function(){
+      document.querySelectorAll('.nav').forEach(function(x){x.classList.remove('on')});
+      document.querySelectorAll('.page').forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      document.getElementById(b.dataset.p).classList.add('on');
+    };
+  });
+  function toggleTheme(){
+    var h=document.documentElement;
+    h.dataset.theme = h.dataset.theme==='dark' ? 'light' : 'dark';
+  }
+  document.querySelectorAll('.seg').forEach(function(s){
+    s.querySelectorAll('button').forEach(function(b){
+      b.onclick=function(){s.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});b.classList.add('on')};
+    });
+  });
+  document.querySelectorAll('.switch').forEach(function(s){ s.onclick=function(){s.classList.toggle('on')} });
+
+  /* ===== 扩展弹窗：候选选择与视图切换 ===== */
+  var clist = document.getElementById('clist');
+  function syncSel(){
+    var items = clist.querySelectorAll('.ci:not(.off)');
+    var picked = clist.querySelectorAll('.pick:checked');
+    document.getElementById('seln').textContent = picked.length;
+    items.forEach(function(it){
+      it.classList.toggle('on', it.querySelector('.pick').checked);
+    });
+    document.getElementById('allchk').checked = picked.length > 0 && picked.length === items.length;
+  }
+  clist.addEventListener('click', function(e){
+    var item = e.target.closest('.ci');
+    if(!item || item.classList.contains('off')) return;
+    var box = item.querySelector('.pick');
+    if(e.target !== box) box.checked = !box.checked;
+    syncSel();
+  });
+  clist.addEventListener('change', function(e){
+    if(e.target.classList.contains('pick')) syncSel();
+  });
+  document.getElementById('allchk').onclick = function(){
+    var on = this.checked;
+    clist.querySelectorAll('.ci:not(.off) .pick').forEach(function(c){ c.checked = on; });
+    syncSel();
+  };
+  document.querySelectorAll('.ext-tabs button').forEach(function(b){
+    b.onclick = function(){
+      document.querySelectorAll('.ext-tabs button').forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      var t = b.dataset.t;
+      document.getElementById('pane-cand').style.display = t === 'cand' ? 'flex' : 'none';
+      document.getElementById('pane-task').style.display = t === 'task' ? 'flex' : 'none';
+    };
+  });
+  syncSel();
+</script>
+</body>
+</html>

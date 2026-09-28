@@ -1,0 +1,32 @@
+# 构建产物与依赖
+node_modules/
+dist/
+build/bin/
+*.exe
+*.dll
+*.syso
+
+# Go
+*.test
+*.out
+vendor/
+
+# 编辑器与系统
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+
+# 运行期数据（绝不入库）
+*.db
+*.db-wal
+*.db-shm
+logs/
+*.log
+
+# 设计稿自检的临时输出
+design/*.log
+
+# Wails 生成的前端绑定（阶段 1 之后再决定是否入库）
+frontend/wailsjs/
