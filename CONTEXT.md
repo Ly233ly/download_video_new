@@ -99,6 +99,7 @@
 | **本机没有 `pwsh`（PowerShell 7）**，只有 Windows PowerShell 5.1 | 提权时**必须用 `powershell.exe`**，用 `pwsh` 会报"系统找不到指定的文件" |
 | **没有 C 编译器**（`gcc` / `clang` / `cl` 全无）——但**实测不影响构建**：`wails build` 在无 gcc 的情况下成功产出 `probe.exe`（11.9 MB，9.3 s）。v2.16.0 在 Windows 走纯 Go 的 WebView2Loader，**不要求 CGO** | **不要为 Wails 装 MinGW**。只有将来引入需要 CGO 的依赖（如 `mattn/go-sqlite3`）时才需要——[03 §2](docs/03-DATA.md) 选的是纯 Go 的 `modernc.org/sqlite`，所以按当前技术栈**不需要**。`wails doctor` 也不会检查编译器，别把它当缺口 |
 | GPU 列表里有 3 个虚拟显示适配器（MuMu / ToDesk / GameViewer）+ NVIDIA 3090 + Intel UHD | **做 PF-A1 / PF-A7 帧率实测量时必须确认渲染落在哪个适配器上**，否则帧率数据不可信 |
+| **`git push` 连不上 GitHub**：直连超时；本机代理是 **`127.0.0.1:7890`**（FlClashCore，系统代理也指向它），但 **git 不读系统代理** | 已配好 `git config --global http.https://github.com.proxy http://127.0.0.1:7890`。若推送又失败，先确认 FlClash 在运行、节点可用（`Test-NetConnection 127.0.0.1 -Port 7890`） |
 
 ---
 
