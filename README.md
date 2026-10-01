@@ -173,10 +173,13 @@ Windows 本机媒体下载与归档工具。**无登录、无账号、无配对�
 
 | 组件 | 状态 |
 | --- | --- |
-| Node.js | ✅ 已安装 |
-| Go | ❌ **未安装**（阶段 1 前置） |
-| Wails CLI | ❌ **未安装** |
-| WebView2 Runtime | Win11 自带；Win10 由安装器部署 |
+| Node.js | ✅ 已安装（24.15.0 / npm 11.12.1） |
+| Go | ✅ **1.27.1**（`C:\Users\MSI\go-sdk\go`；官方 ZIP 免管理员安装，MSI 会报 Error 1925） |
+| Wails CLI | ✅ **v2.16.0**（`C:\Users\MSI\go\bin`）；`wails doctor` 报 SUCCESS |
+| WebView2 Runtime | ✅ 本机已装（154.x）；Win10 由安装器部署 |
+| C 编译器 | ⛔ **不需要**——`wails build` 已实测在无 gcc 环境构建成功（[CONTEXT.md §3.4](CONTEXT.md)）；仅当引入 CGO 依赖时才需要 |
+
+> 本机环境要点（含 UAC 提权用法、MSI 1925 的绕法、GOPROXY 现状）见 [`CONTEXT.md` §3.4](CONTEXT.md)。
 
 ---
 
