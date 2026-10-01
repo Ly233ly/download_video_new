@@ -46,7 +46,7 @@
 | 阶段编号统一 | `11 §6` 补 0.5/2.5 两行、末行改"8（发布验证）"；`T-EXT-26` 从阶段 2 移到 2.5（[13](docs/13-ROADMAP.md) 侧原本两处互相矛盾）；阶段 3 统一 `T-ADP-*`；[13 §2](docs/13-ROADMAP.md) 补阶段 8 定义；[13 §10](docs/13-ROADMAP.md) 的 `D-3` 不再用"有明确改善" |
 | 工具链就位 | Go 1.27.1 + Wails CLI v2.16.0 装好；**实建了一个一次性项目验证可构建**（`wails init -t vanilla` 1.7 s、`wails build` 9.3 s 产出 11.9 MB exe），证明**无需 C 编译器**；`wails doctor` 报 SUCCESS（见 §3.4） |
 | 许可证路线已定 | **继续复用 cat-catch 扩展**（组合发行按 GPL-3.0 并提供对应源码）；依据：用户明确**本软件不出售**，Commons Clause 类附加条款不构成约束。**若将来改为公开分发，GPL-3.0 的提供源码义务仍然成立** |
-| 阶段 0.5 已部分完成 | 建立 [`docs/baseline.md`](docs/baseline.md)：实测官方 1.6.3 冻结版的冷启动（p50 1136.3 ms）与空闲常驻（CPU 0.06 % / 64 MB / 444 句柄）；`B-3`~`B-8` 六项如实标"未测"。测量脚手架在 `measurement/`（可复现，含隔离解包与单实例互斥体处理） |
+| 阶段 0.5 已部分完成 | 建立 [`docs/baseline.md`](docs/baseline.md)：实测官方 1.6.3 冻结版的冷启动（p50 1136.3 ms）与空闲常驻（CPU 0.06 % / 64 MB / 444 句柄）；`B-3`~`B-8` 六项如实标"未测"。测量口径写在该文档 §4（脚本已按要求删除） |
 | 前端框架定案 | 新增 [16 号文档](docs/16-FRONTEND.md)：**React 19 + React Compiler + `@tanstack/react-virtual`**；把 `P-101`~`P-110` 翻译成桌面端 React 约束（`P-101`/`P-102` 是扩展侧契约，不会自动成立）；原 [13 V7](docs/13-ROADMAP.md) 的 Svelte/React 对比实测**取消**。提交 `f55513c` |
 
 ---
@@ -66,7 +66,7 @@
 
 ### 3.2 待办 A：阶段 0.5 基线（**已部分完成**，缺口在 `docs/baseline.md` §3）
 
-[`docs/baseline.md`](docs/baseline.md) **已建立**，被测对象是**官方 1.6.3 冻结发行版**（后端 SHA-256 与官方验证页逐字节一致），测量脚本在 `measurement/`。
+[`docs/baseline.md`](docs/baseline.md) **已建立**，被测对象是**官方 1.6.3 冻结发行版**（后端 SHA-256 与官方验证页逐字节一致）。
 
 | 已测 | 结果 | 代入 |
 | --- | --- | --- |
@@ -163,8 +163,7 @@
 | 站点适配器规范 `A-1xx` | [`docs/14-SITE-ADAPTERS.md`](docs/14-SITE-ADAPTERS.md) |
 | **上游来源、许可证义务、第三方库、参考项目** | [`docs/15-UPSTREAM.md`](docs/15-UPSTREAM.md) |
 | 前端框架规范（React 19 / React Compiler / 虚拟列表 / 渲染约束） | [`docs/16-FRONTEND.md`](docs/16-FRONTEND.md) |
-| **旧版性能基线数值**（阶段 0.5 实测 + 未测项） | [`docs/baseline.md`](docs/baseline.md) |
-| 基线测量脚手架（可复现） | [`measurement/`](measurement/Measure-ColdStart.ps1) |
+| 旧版性能基线数值（阶段 0.5 实测 + 未测项） | [`docs/baseline.md`](docs/baseline.md) |
 | 为什么这么决定 | [`docs/adr/`](docs/adr/) |
 | 界面设计稿（双击浏览器打开） | [`design/mockup.html`](design/mockup.html) |
 | 设计稿自检 | `node design/_check.mjs` |

@@ -148,8 +148,6 @@ Windows 本机媒体下载与归档工具。**无登录、无账号、无配对�
 | --- | --- |
 | [`docs/baseline.md`](docs/baseline.md) | 旧版 1.6.3 冻结版的冷启动与空闲常驻实测；未测项如实标注 |
 
-测量脚手架（可复现）在 [`measurement/`](measurement/Measure-ColdStart.ps1)。
-
 架构决策记录见 [`docs/adr/`](docs/adr/)。
 
 界面设计稿见 [`design/mockup.html`](design/mockup.html)——静态 HTML，双击用浏览器打开即可，不参与构建。底部有一条演示控制条，可切换**两种标题栏形态**（自绘交通灯 / 系统标题栏）、深浅主题、窗口失焦态，以及扩展弹窗与托盘通知的独立画布。

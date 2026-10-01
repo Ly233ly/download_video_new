@@ -8,8 +8,10 @@
 | --- | --- |
 | 测量日期 | 2026-10-02 |
 | 被测对象 | **官方 1.6.3 冻结发行版**（后端 SHA-256 `12134F4B1C62E1380E8653086D2AA6DA6B3F02C37825F08225A53840A95988FE`，与官方验证页一致） |
-| 测量工具 | `measurement/Measure-ColdStart.ps1`、`measurement/Measure-Idle.ps1`、`measurement/Measure-UI.ps1` |
-| 原始样本 | `measurement/raw*/`（不入库，见 `.gitignore`） |
+| 被测对象来源 | 旧项目 `release/留底下载器-1.6.3-Windows-x64/留底下载器-1.6.3/留底安装器.exe`，用 `--test-install` + `IDM_EAGLE_INSTALL_ROOT` **隔离解包**，不触碰已安装实例 |
+| 测量方式 | 外部进程树观测（不采信进程内部的 `tracemalloc` 等堆指标） |
+
+> **测量脚本已按用户要求删除**，本文只保留数值与口径。需要重测时按 §4 的口径重新实现。
 
 ---
 
@@ -92,7 +94,7 @@
 
 | 项 | 状态 | 原因 | 影响的判据 |
 | --- | --- | --- | --- |
-| `B-3` 1000 条任务列表滚动帧率分布 | **未测** | Tkinter 无"帧率"概念，旧版也没有帧回调；需要另行定义等价量（滚轮分发耗时 + 重绘次数）。脚手架 `measurement/Measure-UI.ps1` 已就绪但未跑 | `PF-A1` |
+| `B-3` 1000 条任务列表滚动帧率分布 | **未测** | Tkinter 无"帧率"概念，旧版也没有帧回调；需要另行定义等价量（滚轮分发耗时 + 重绘次数）——**这是方法论缺口，不是"还没跑"** | `PF-A1` |
 | `B-4` 1000 条下单条状态更新耗时与 DOM 变更数 | **未测** | 同上；旧版是 `innerHTML` 全量重建模型，没有"单条更新"这个操作可比 | `PF-A2`、`T-UI-06` |
 | `B-5` 捕获开启时的吞吐 / CPU / 额外延迟 | **未测** | 需要真实微信视频号流量，属人工复验边界（[11 §5](11-ACCEPTANCE.md) M3） | `PF-A5` |
 | `B-6` 并发 3 下载时界面响应 | **未测** | 需要真实下载任务与受控带宽 | `PF-A6` |
@@ -106,16 +108,22 @@
 
 ---
 
-## 4. 测量方法与可复现性
+## 4. 测量方法与口径
+
+> 本节是**口径**，不是脚本。测量脚本已删除；重测时必须满足下表，否则数字与本文不可比。
 
 | 项 | 做法 |
 | --- | --- |
-| 被测构建 | 用官方安装器的 `--test-install` + `IDM_EAGLE_INSTALL_ROOT` **隔离解包**到 `measurement/old-1.6.3`，后端 SHA-256 与官方验证页逐字节一致 |
-| 不污染用户环境 | 数据目录经 `IDM_EAGLE_DATA_DIR` 指向一次性目录；**未触碰**用户已安装的 1.6.1 实例与其数据 |
+| 被测构建 | 用官方安装器的 `--test-install` + `IDM_EAGLE_INSTALL_ROOT` **隔离解包**，并核对后端 SHA-256 与官方验证页一致（否则测的不是发行物） |
+| 不污染用户环境 | 数据目录经 `IDM_EAGLE_DATA_DIR` 指向一次性目录；不得触碰用户已安装实例与其数据 |
 | 进程定位 | **按可执行文件路径**匹配，不按父子关系——`--external-tray` 下真实后端是孤儿进程（父引导进程 re-exec 后退出），树遍历找不到它 |
 | 冷启动判定 | 主窗口可见**且**响应 `WM_NULL`（带 `SMTO_ABORTIFHUNG`），两者都满足才记时 |
-| 单实例干扰 | 旧版用命名互斥体 `Local_IdmEagleAutoImport` 保证单实例。**残留实例会让后续每次启动立刻退出**，所以每轮测量前先杀掉残留并断言互斥体空闲 |
+| 丢弃首轮 | 冷启动必须丢弃第 1 次样本（见 §4.1），否则被初始化开销污染 |
+| 进程存活校验 | 每个样本都要断言进程仍在；进程消失必须记为**测量失败**，绝不允许记成"0 % CPU / 0 句柄" |
+| 空闲采样 | 静置 30 s 后进入稳定态再采样，间隔 10 s，时长按 [11 §3](11-ACCEPTANCE.md) 要求 ≥ 10 分钟 |
+| 单实例干扰 | 旧版用命名互斥体 `Local_IdmEagleAutoImport`。**残留实例会让后续每次启动立刻退出**，所以每轮前先杀残留并断言互斥体空闲 |
 | 超时 | 每次启动 ≤ 120 s；未在窗口期出现记为无效样本（本次无此情况） |
+| 内存口径 | 只用**进程工作集**。旧项目 fixture 输出的 `tracemalloc` 是 Python 堆，**不得**当工作集使用 |
 
 ### 4.1 测量过程中发现的两个旧版行为（对重写有参考价值）
 
@@ -126,25 +134,25 @@
 
 ---
 
-## 5. 复现命令
+## 5. 重测时的被测构建获取方式
+
+只需这一条命令即可复现被测构建（**不需要任何自写脚本**）：
 
 ```powershell
-# 冷启动（权威：完整用户路径）
-powershell -NoProfile -ExecutionPolicy Bypass -File measurement\Measure-ColdStart.ps1 -Target launcher -Count 5
-
-# 冷启动（后端本体，用于分解启动器开销）
-powershell -NoProfile -ExecutionPolicy Bypass -File measurement\Measure-ColdStart.ps1 -Target frozen -Count 7
-
-# 空闲常驻（Minutes 建议 ≥ 10 以满足 docs/11 §3 口径）
-powershell -NoProfile -ExecutionPolicy Bypass -File measurement\Measure-Idle.ps1 -Minutes 10
-
-# UI 计时（复用旧项目自带的 fixture；只取时间字段，内存字段是 tracemalloc 不可当工作集）
-powershell -NoProfile -ExecutionPolicy Bypass -File measurement\Measure-UI.ps1 -Scenario stress -Iterations 20
-```
-
-**隔离解包被测构建**（若 `measurement/old-1.6.3` 不存在）：
-
-```powershell
-$env:IDM_EAGLE_INSTALL_ROOT = 'E:\DSH\download_refactor\measurement\old-1.6.3'
+# 隔离解包官方 1.6.3 到任意临时目录；不触碰已安装实例与注册表
+$env:IDM_EAGLE_INSTALL_ROOT = 'D:\tmp\old-1.6.3'
 & 'E:\Users\MSI\Desktop\codex_download\release\留底下载器-1.6.3-Windows-x64\留底下载器-1.6.3\留底安装器.exe' --test-install
+# 解包后核对：runtime\留底桌面端后台\留底桌面端后台.exe 的 SHA-256 应等于
+# 12134F4B1C62E1380E8653086D2AA6DA6B3F02C37825F08225A53840A95988FE
 ```
+
+被测后台的启动方式（复现启动器行为的关键参数）：
+
+```powershell
+# 与随包启动器 BuildBackendStartInfo 一致
+& '<解包目录>\runtime\留底桌面端后台\留底桌面端后台.exe' --external-tray
+# 数据目录重定向，避免污染用户实例
+$env:IDM_EAGLE_DATA_DIR = '<临时目录>'
+```
+
+> 其余测量逻辑（窗口就绪判定、进程定位、存活校验、采样）按 §4 的口径自行实现即可——口径比脚本更重要。

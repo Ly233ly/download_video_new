@@ -1,8 +1,0 @@
-{
-  "_comment": "Stage 0.5 measurement targets. Kept in a UTF-8 JSON file because Windows PowerShell 5.1 decodes BOM-less UTF-8 scripts as ANSI and corrupts non-ASCII paths.",
-  "oldProjectSrc": "E:\\Users\\MSI\\Desktop\\codex_download\\src",
-  "frozenRoot": "E:\\DSH\\download_refactor\\measurement\\old-1.6.3",
-  "frozenBackendRel": "runtime\\留底桌面端后台\\留底桌面端后台.exe",
-  "frozenLauncherRel": "留底下载器.exe",
-  "expectedBackendSha256": "12134F4B1C62E1380E8653086D2AA6DA6B3F02C37825F08225A53840A95988FE"
-}
