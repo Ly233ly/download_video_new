@@ -50,7 +50,7 @@ internal/* → internal/platform
 | 常量 | PascalCase | `MaxPackageBytes` |
 | 错误变量 | `err` 前缀 | `errPlanNotRetryable` |
 | 测试 | `Test<被测>_<场景>` | `TestPlanStop_DoesNotOverwriteCanceled` |
-| 前端组件 | PascalCase 文件（扩展名随阶段 1 定下的框架） | `PlanList` |
+| 前端组件 | PascalCase 文件（`.tsx`） | `PlanList` |
 
 **契约标注**：只在实现**关键外部行为**（文件删除、代理恢复、秘密边界）的函数上标注契约编号，例如 `// B-402`。**不做机器扫描，不要求全覆盖。**
 

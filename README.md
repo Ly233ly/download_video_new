@@ -140,6 +140,7 @@ Windows 本机媒体下载与归档工具。**无登录、无账号、无配对�
 | 13 | [实施路线](docs/13-ROADMAP.md) | 分阶段计划与门禁 |
 | 14 | [站点适配器](docs/14-SITE-ADAPTERS.md) | **特定抓取方法**的目录、命名、声明与文档要求 |
 | 15 | [上游来源与合规](docs/15-UPSTREAM.md) | 复用 / 行为研究 / 二进制三类来源、GPL-3.0 义务、第三方库清单 |
+| 16 | [前端框架规范](docs/16-FRONTEND.md) | React 19、React Compiler、虚拟列表、渲染约束 |
 
 架构决策记录见 [`docs/adr/`](docs/adr/)。
 
@@ -162,7 +163,7 @@ Windows 本机媒体下载与归档工具。**无登录、无账号、无配对�
 | 后端 | Go |
 | 桌面壳 | Wails |
 | 渲染 | 系统 WebView2 |
-| 前端 | TypeScript + Vite + Tailwind（框架阶段 1 定） |
+| 前端 | React 19 + TypeScript + Vite + Tailwind（[16](docs/16-FRONTEND.md)） |
 | 数据库 | SQLite（`modernc.org/sqlite`，纯 Go） |
 | 扩展 | 原生 JS，MV3，**复用** |
 | 媒体工具 | FFmpeg / FFprobe / yt-dlp / Deno（复用旧项目 `media-tools/`） |
