@@ -30,3 +30,7 @@ design/*.log
 
 # Wails 生成的前端绑定（阶段 1 之后再决定是否入库）
 frontend/wailsjs/
+
+# 阶段 0.5 基线测量：隔离解包的旧版冻结载荷（近 300 MB）与原始样本
+measurement/old-1.6.3/
+measurement/raw/
