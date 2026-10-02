@@ -20,7 +20,7 @@
 | **远程仓库** | <https://github.com/Ly233ly/download_video_new>（`origin`，分支 `main`） |
 | **旧项目** | `E:\Users\MSI\Desktop\codex_download`（**只读，永不修改**） |
 | **开发方式** | 全 AI 开发，**文档是权威**，实现服从文档 |
-| **当前状态** | **阶段 2（第一条完整链路）已交付，门禁 5/11 通过**——逐项证据见 [`docs/phase2-report.md`](docs/phase2-report.md)。**Go 侧与前端完成**：`go build`/`go vet` 干净、8 个包测试全绿；前端 `check` exit 0、**79 个测试通过**。已过：`T-BRAND-03` · `T-STB-01` · `T-FS-01` · `T-DL-01` · `T-DL-10`。**未验证的 6 项全在扩展侧**（`T-EXT-10`、`T-EXT-15~19`）：源码已迁入并重写（21 文件，JS 语法与 manifest 解析均通过），但 `07 §8` 要求的测试资产**尚未迁入** `extension/tests/`。**阶段 1 门禁遗留不变**：`PF-A4` ⚠️ p50 通过、**p95 待无负载复测** · `PF-A3`/`T-STB-05` ⏳ 试点通过、**正式 10 分钟未测**（**已按用户要求暂缓**） |
+| **当前状态** | **阶段 2（第一条完整链路）已交付，门禁 5/11 通过**——逐项证据见 [`docs/phase2-report.md`](docs/phase2-report.md)。**Go 侧与前端完成**：`go build`/`go vet` 干净、8 个包测试全绿；前端 `check` exit 0、**79 个测试通过**。已过：`T-BRAND-03` · `T-STB-01` · `T-FS-01` · `T-DL-01` · `T-DL-10`。**扩展侧**：源码已迁入并重写（`tests/js/` 8 个测试资产也已落地，其中**新增的 `test_list_rendering.js` 覆盖 `P-101`~`P-109` 并通过**）；`test_bilibili.js` / `test_youtube.js` / `test_wechat_channels_bridge.js` 为 **SKIP 且理由明确**（站点脚本属阶段 3、视频号属阶段 5，断言原样保留）；`test_auth_race.js` 与 `test_popup_logic.js` **待修复**。故 `T-EXT-10` 与 `T-EXT-15~19` 尚**未正式判定**。**阶段 1 门禁遗留不变**：`PF-A4` ⚠️ p50 通过、**p95 待无负载复测** · `PF-A3`/`T-STB-05` ⏳ 试点通过、**正式 10 分钟未测**（**已按用户要求暂缓**） |
 
 ---
 
