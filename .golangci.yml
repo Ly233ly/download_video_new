@@ -1,0 +1,20 @@
+# Go linter 集（[12 §10](../docs/12-CONVENTIONS.md) 的 Z1 定义）——权威位置，其余地方只引用。
+#
+# 只启用这 5 个：够用且噪声低。**不引入** gosec（本项目的对手是自己出的 bug，
+# 不是攻击者，见 ADR-003），也不用全量 linter 集。
+#
+# 调用方：build/check-go.ps1（[12 §6.2] 门禁第 1 项）。
+#
+# 状态：本机（CONTEXT §3.4）**尚未安装 golangci-lint**，因此本文件与
+# check-go.ps1 的第三步**均未实测**；安装后需按实际版本校验语法
+# （下方 `version: "2"` 与 `default: none` 是 golangci-lint v2 的写法）。
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused

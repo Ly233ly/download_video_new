@@ -23,6 +23,14 @@
 
 > 该脚本在阶段 1 用真实前端工程重建设计系统后即可退役；届时它的职责由 §10 `Z3` 的契约校验脚本承接。
 
+> **`frontend/` 会污染 Go 的包遍历（实测）**：`frontend/` 是 npm 项目，但 `node_modules` 里夹带第三方 Go 源码——`go list ./...` 实测出现 `frontend/node_modules/flatted/golang/pkg/flatted`。裸 `go vet ./...` / `go test ./...` 会下探进去编译它们，其中任何一个不能编译，全仓门禁就会**以与本项目无关的理由**失败。
+>
+> **不要**用「在 `frontend/` 放嵌套 `go.mod`」来隔离：`//go:embed` **不允许跨模块**嵌入，加了之后 `main.go` 的 `//go:embed all:frontend/dist` 会直接编译失败（实测 `cannot embed directory frontend/dist: in different module`）；把前端产物移出 `frontend/` 属于架构改动（[01](01-ARCHITECTURE.md)），代价更大。
+>
+> 所以 Go 命令的范围**显式给出**：`build/check-go.ps1` 用 `git ls-files '*.go'` 反推本项目自己的包目录——以「仓库跟踪的文件」为准，天然排除 `node_modules` 与一切忽略项，且**新增顶层包时不需要改脚本**。手工跑测试同理，用 `go test ./ ./internal/...`，不要用裸 `./...`。
+
+> **含中文的 `.ps1` 必须存为 UTF-8 with BOM**：Windows PowerShell 5.1 会把无 BOM 的脚本按系统 ANSI 代码页解码，中文注释与字符串变乱码后**可能连引号配对都错**——实测 `build/check-go.ps1` 无 BOM 时报 `MissingEndCurlyBrace` 直接无法解析。纯 ASCII 写的脚本（如 [`tools/Check-ContractCoverage.ps1`](../tools/Check-ContractCoverage.ps1)）不受影响，因此两种写法都可以，但**要么全 ASCII，要么带 BOM**。
+
 ### 1.2 包划分
 
 见 [01 §3](01-ARCHITECTURE.md)。包名必须与职责一一对应，**禁止**出现 `utils`、`common`、`helpers` 这类无边界包。

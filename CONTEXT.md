@@ -33,7 +33,7 @@
 | 设计稿 | [`design/mockup.html`](design/mockup.html) 已定稿（浅色主调 + 白卡片 + 蓝），含扩展弹窗的候选/任务/设置三个标签页 |
 | 自检 | 文档断链 0、跨文档章节引用全有效、设计稿自检脚本 `exit=0` |
 | 环境 | **Go 1.27.1 已装**（`C:\Users\MSI\go-sdk\go`，ZIP 免管理员）· **Wails CLI v2.16.0 已装**（`C:\Users\MSI\go\bin`）· WebView2 Runtime 已装 · **`wails build` 实测通过**（见 §3.4，**不需要 C 编译器**） |
-| 代码 | **零行** |
+| 代码 | **26 个 Go 文件 + 18 个 ts/tsx**（阶段 1 的 `D1`~`D7`），已入库并推送到 `origin/main`（`37a3a37`）。Go 门禁：[`build/check-go.ps1`](build/check-go.ps1) 的 gofmt 与 go vet 通过；`golangci-lint` 本机**未安装**，该步为 `INCOMPLETE`（退出码 2，**不视为通过**） |
 
 ### 已完成的关键事项（不需要重做）
 
@@ -58,6 +58,8 @@
 | 阶段 1 门禁实测记录（2026-10-02） | 新建 [`docs/phase1-report.md`](docs/phase1-report.md)（**新实现**侧数据，与旧版 [`baseline.md`](docs/baseline.md) 分开存放）。结论：**3 项通过、1 项待复测、2 项口径不足**——`T-STB-02` ✅ · `PF-A4` p50 576.2 ms（旧版 1136.3，约快 2 倍）✅ / p95 因**测量期间外部负载（用户玩游戏）**污染而未判 · `PF-A3` 试点：私有工作集 86.6–88.5 MB、自有句柄 409、CPU 0.047% ✅（**正式 10 分钟未测**）。未测项逐条显式标注 |
 | 阶段 1 门禁探针（2026-10-02） | 在正式工程外建 Wails 探针（`D:\tmp\liudi-probe`，**未入库**）实测：`PF-A4` 冷启动 **p50 456.5 ms / p95 553.3 ms**（阈值 1136.3 / 1363.6，余量 2.5 倍）· `V5` 管道 JSON-RPC **1000 次往返零错误**、子进程崩溃 **1 ms** 感知、父进程死亡 8–10 ms 子进程自退 · `V1` 体积 11.4 MB / 构建 7.6 s。**并暴露一处判据量纲错误**：工作集求和 330.1 MB vs 私有工作集求和 78.9 MB、句柄 3231（其中 2878 由 WebView2 引擎产生）→ 已修订 [11 §3](docs/11-ACCEPTANCE.md) 的"内存口径""句柄口径"与 `PF-A3`/`ST-7` 行，**阈值未放宽**；教训（"有基线≠可比"）记入 [baseline.md](docs/baseline.md) §3。`PF-A3` 正式 10 分钟测量与 `V4` 杀软验证待在骨架内执行 |
 
+| 阶段 1 代码入库 + 收尾清理（2026-10-02） | 阶段 1 全部代码此前**只在工作区、未入库**（本表的「代码」行还写着"零行"）。已按两个逻辑提交推到远端：`103363f` 规范同步 · `37a3a37` 骨架实现（71 文件 +10680 行）。**三处缺口一并清掉**：① 本表「代码」行改为实测值；② [12 §10 `Z1`](docs/12-CONVENTIONS.md) 声明的落点 [`build/check-go.ps1`](build/check-go.ps1) 已落地——gofmt 范围用 `git ls-files '*.go'`、`go vet` 用同源反推的包目录、`golangci-lint` 未装时显式 SKIP 并以退出码 2 表示「门禁未完整执行」（**不谎报通过**）；③ 裸 `go vet ./...` 会下探 `frontend/node_modules` 里的第三方 Go 源码（实测 `flatted/golang/pkg/flatted`），而**嵌套 `go.mod` 隔离会打断 `//go:embed`**（实测 `cannot embed directory frontend/dist: in different module`）→ 改为显式给出包范围，教训记入 [12 §1.1](docs/12-CONVENTIONS.md) |
+
 ---
 
 ## 3. 下一步做什么
@@ -70,6 +72,7 @@
 | **2** | 阶段 0.5 剩余项 | 见下方待办 A：`B-3`~`B-8` 六项未测 + 空闲采样时长不足。**不阻塞阶段 1**（它测的是旧版，只要旧项目不变就不过期） |
 | **3** | 阶段 2 第一条链路 | 浏览器点一下 → 文件真的落到磁盘 |
 | **4** | 阶段 2.5 浏览器下载模式 | 解决用户最初提的 YouTube 链接问题 |
+| **5** | 装 `golangci-lint` 并实测 [`.golangci.yml`](.golangci.yml) | [12 §10 `Z1`](docs/12-CONVENTIONS.md) 已定工具链、[`build/check-go.ps1`](build/check-go.ps1) 已落地，但本机没装 → 门禁第 1 项目前是 `INCOMPLETE`。一条命令：`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`；装完要核对配置语法（脚本按 **v2** 写：`version: "2"` + `default: none`） |
 
 阶段划分、每阶段门禁、待确认项总清单都在 [`docs/13-ROADMAP.md`](docs/13-ROADMAP.md)。
 
