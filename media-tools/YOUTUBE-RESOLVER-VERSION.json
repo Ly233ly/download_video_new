@@ -1,0 +1,12 @@
+﻿{
+    "ytDlpVersion":  "2026.06.09",
+    "ytDlpBinarySource":  "https://github.com/yt-dlp/yt-dlp/releases/download/2026.06.09/yt-dlp.exe",
+    "ytDlpSha256":  "3a48cb955d55c8821b60ccbdbbc6f61bc958f2f3d3b7ad5eaf3d83a543293a27",
+    "ytDlpSource":  "https://github.com/yt-dlp/yt-dlp/releases/download/2026.06.09/yt-dlp.tar.gz",
+    "ytDlpSourceSha256":  "7603f876b78d08b5fdd5bcd1d368590fde22c3c18e4ea00766d51120d21cc679",
+    "denoVersion":  "2.8.1",
+    "denoSource":  "https://github.com/denoland/deno/releases/download/v2.8.1/deno-x86_64-pc-windows-msvc.zip",
+    "denoArchiveSha256":  "5fb5bac71f609fb91ec8960fb290885aadc27eeb22f07a8eca0c3db6be38b11a",
+    "denoSha256":  "a8afddac131261dc9e085c6a1a79544f0567bd09e481034b5d1533588cba9b30",
+    "purpose":  "Resolve selected YouTube quality to transient direct media URLs on the desktop"
+}

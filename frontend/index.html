@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>留底下载器</title>
+    <script>
+      // 主题必须在**首帧前**确定（B-803、[09 §4.3]）。
+      // 这段必须同步内联：挪进 React 就会先渲染默认色再切换，用户能看到闪烁。
+      // 值由 Go 侧中间件从 settings.theme 注入（权威在数据库），注入失败时回落浅色。
+      (function () {
+        var injected = window.__LIUDI_THEME__;
+        var theme = injected === 'dark' || injected === 'light' ? injected : 'light';
+        document.documentElement.dataset.theme = theme;
+        window.__LIUDI_THEME__ = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

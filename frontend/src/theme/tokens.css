@@ -1,0 +1,131 @@
+/*
+ * 设计 token 的**唯一实现来源**（[09 §4.2]）。
+ *
+ * 取值逐条对应 [09 §4.4] 色板与 §4.6 度量，与 `design/mockup.html` 的变量一一对应；
+ * 深浅两套之外**不得**硬编码第三种颜色。
+ * Tailwind 主题通过末尾的 `@theme inline` 引用这些变量——CSS 变量与 Tailwind
+ * 共用同一个生成物，避免"两处各写一套值"（[16 §4.7]）。
+ */
+@import 'tailwindcss';
+
+:root {
+  /* 表面 */
+  --liudi-bg: #eef0f4;
+  --liudi-surface: #ffffff;
+  --liudi-surface-2: #f6f7f9;
+  --liudi-sidebar-bg: #f7f8fa;
+  --liudi-titlebar-bg: linear-gradient(180deg, #ffffff, #fbfcfd);
+  /* 描边 */
+  --liudi-border: #e6e8ec;
+  --liudi-border-strong: #c9cdd6;
+  /* 文字 */
+  --liudi-text: #1a1d21;
+  --liudi-text-2: #6b7280;
+  --liudi-text-3: #9aa1ac;
+  /* 强调与语义 */
+  --liudi-accent: #2f6df6;
+  --liudi-accent-soft: #eaf0fe;
+  --liudi-accent-ink: #ffffff;
+  --liudi-ok: #12a150;
+  --liudi-warn: #d97706;
+  --liudi-err: #dc2626;
+  --liudi-track: #eceef2;
+  /* 阴影 */
+  --liudi-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 6px 16px rgba(16, 24, 40, 0.055);
+  --liudi-shadow-pop: 0 16px 48px rgba(16, 24, 40, 0.22);
+  /* 度量 */
+  --liudi-r-win: 14px;
+  --liudi-r-card: 12px;
+  --liudi-r-ctl: 7px;
+  --liudi-r-nav: 8px;
+  --liudi-r-pill: 999px;
+  --liudi-sidebar-w: 196px;
+  --liudi-titlebar-h: 48px;
+  /* 字体 */
+  --liudi-font:
+    'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+  --liudi-font-mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+}
+
+[data-theme='dark'] {
+  --liudi-bg: #0c0e12;
+  --liudi-surface: #1e2126;
+  --liudi-surface-2: #23262c;
+  --liudi-sidebar-bg: #191c21;
+  --liudi-titlebar-bg: linear-gradient(180deg, #22252b, #1e2126);
+  --liudi-border: #2e323a;
+  --liudi-border-strong: #3d424c;
+  --liudi-text: #e8eaed;
+  --liudi-text-2: #9aa1ac;
+  --liudi-text-3: #6b7280;
+  --liudi-accent: #5b8dff;
+  --liudi-accent-soft: #1e2740;
+  --liudi-accent-ink: #ffffff;
+  --liudi-ok: #34d399;
+  --liudi-warn: #fbbf24;
+  --liudi-err: #f87171;
+  --liudi-track: #2a2e36;
+  /* 深色下的阴影要更重：浅色阴影落在深底上会"消失"，层次就没了 */
+  --liudi-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --liudi-shadow-pop: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--liudi-bg);
+  color: var(--liudi-text);
+  font-family: var(--liudi-font);
+  font-size: 14px;
+  line-height: 1.55;
+  /* 扁平：层次只由留白 + 1px 描边 + 极轻阴影表达（[09 §4.1]） */
+  -webkit-font-smoothing: antialiased;
+  /* 窗口内部不整页滚动，滚动交给主区 */
+  overflow: hidden;
+}
+
+/* 主区滚动条观感（对应设计稿 .main::-webkit-scrollbar） */
+.main-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.main-scroll::-webkit-scrollbar-thumb {
+  background: var(--liudi-border-strong);
+  border-radius: 6px;
+  border: 3px solid var(--liudi-surface);
+}
+
+/* 主题切换通过替换 CSS 自定义属性实现，不触发组件树重建（[16 §4.7]）。 */
+@theme inline {
+  --color-bg: var(--liudi-bg);
+  --color-surface: var(--liudi-surface);
+  --color-surface-2: var(--liudi-surface-2);
+  --color-sidebar: var(--liudi-sidebar-bg);
+  --color-line: var(--liudi-border);
+  --color-line-strong: var(--liudi-border-strong);
+  --color-content: var(--liudi-text);
+  --color-content-2: var(--liudi-text-2);
+  --color-content-3: var(--liudi-text-3);
+  --color-accent: var(--liudi-accent);
+  --color-accent-soft: var(--liudi-accent-soft);
+  --color-accent-ink: var(--liudi-accent-ink);
+  --color-ok: var(--liudi-ok);
+  --color-warn: var(--liudi-warn);
+  --color-err: var(--liudi-err);
+  --color-track: var(--liudi-track);
+
+  --radius-card: var(--liudi-r-card);
+  --radius-ctl: var(--liudi-r-ctl);
+  --radius-nav: var(--liudi-r-nav);
+  --radius-pill: var(--liudi-r-pill);
+
+  --shadow-card: var(--liudi-shadow);
+  --shadow-pop: var(--liudi-shadow-pop);
+
+  --font-sans: var(--liudi-font);
+  --font-mono: var(--liudi-font-mono);
+}
