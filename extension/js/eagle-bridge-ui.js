@@ -137,7 +137,6 @@
     let taskPollTimer = null;
     let candidateCoalesceTimer = null;
     let snapshotCoalesceTimer = null;
-    let modeReadDone = false;
 
     const frames = { tabTicket: 0, connectionTicket: 0, candidateTicket: 0, plansTicket: 0 };
 
@@ -1566,14 +1565,6 @@
         }
     }
 
-    async function readBrowserDownloadModeOnce() {
-        // 模式已在 `connect` 里随健康响应之外的 `/api/mode` 读回（04 §2.5：
-        // 权威在桌面端，弹窗打开时读一次）；这里只负责在有结果时刷新设置页。
-        if (modeReadDone || !state.desktopAvailable) return;
-        modeReadDone = true;
-        if (!state.disposed) renderSettings();
-    }
-
     async function connectDesktop() {
         const label = root.querySelector("#bridgeConnectionLabel");
         if (label) label.textContent = t("connecting");
@@ -1581,8 +1572,7 @@
             const connected = await refreshConnection();
             showToast(connected ? t("connectionDone") : t("connectFailed"), connected ? "info" : "error", 4200);
             if (connected) {
-                modeReadDone = false;
-                await readBrowserDownloadModeOnce();
+                await refreshPlans().catch(() => undefined);
                 await refreshPlans().catch(() => undefined);
                 scheduleTaskPoll();
             }
@@ -1937,7 +1927,6 @@
     (async () => {
         initShell();
         await refreshAll();
-        await readBrowserDownloadModeOnce();
     })().catch(error => {
         if (state.disposed) return;
         const inspector = root.querySelector("#bridgeInspector");

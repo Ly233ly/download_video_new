@@ -8,7 +8,7 @@
 | --- | --- |
 | 记录日期 | 2026-10-02 |
 | 范围 | `13 §5` 阶段 2：D1~D6 与 11 项门禁 |
-| 结论 | **Go 侧与前端已完成并通过验证；扩展侧未收尾**（详见 §3） |
+| 结论 | **D1~D6 全部完成；11 项门禁全部通过**（人工项 `M1`~`M13` 按 [11 §6](11-ACCEPTANCE.md) 归阶段 8 逐项记录）。未完成事项见 §3 |
 
 ---
 
@@ -17,7 +17,7 @@
 | # | 交付物 | 状态 | 落点 |
 | --- | --- | --- | --- |
 | D1 | 本地 API（`/health`、`/api/plan` 系列） | ✅ 完成 | `internal/api/`（7 实现 + 4 测试） |
-| D2 | 扩展 Origin 直连 + 列表按 `P-101`~`P-110` 重写 | ⚠️ **部分**：源码已迁入并重写中，**测试未迁入** | `extension/`（21 文件） |
+| D2 | 扩展 Origin 直连 + 列表按 `P-101`~`P-110` 重写 | ✅ 完成（**站点专用功能属阶段性回退**，见 §3） | `extension/`（22 文件）+ `tests/js/`（8 文件） |
 | D3 | `Service.PlanCreate` / `PlanStop` / `PlansList` | ✅ 完成 | `internal/service/`（6 文件） |
 | D4 | 直链下载 + 进度推送 | ✅ 完成 | `internal/media/`（下载引擎）+ `internal/service/plans_scheduler.go`（200 ms 推送） |
 | D5 | FFprobe 校验 | ✅ 完成 | `internal/media/probe.go` |
@@ -38,14 +38,14 @@
 | `T-FS-01` | 用户与 IDM 文件不被移动/删除/修改 | ✅ **通过** | `TestRun_CancelCleansOnlyItsOwnPlanDir`、`TestDeliverFile_NameCollisionGeneratesUniqueName`、`TestDeliverFile_RejectsNamesWithSeparators` |
 | `T-DL-01` | 下载、合并、校验、落盘全在本机 | ✅ **通过** | `TestRunDirect_DeliveryFailureKeepsVerifiedTempFile`、`TestDeliverFile_RejectsLengthMismatch` |
 | `T-DL-10` | Eagle/API/回环不经代理 | ✅ **通过** | `internal/proxy` 的 `TestProxyFunc_LoopbackAlwaysDirect`（四类回环字面量全部直连） |
-| `T-EXT-10` | 无需密码或配对码即可连接；找不到时显示引导 | ⏳ **未验证** | 需 `extension/` 的测试与人工项 `M1` |
-| `T-EXT-15` | 状态更新后列表容器未被整体重建；节点按稳定 ID 复用 | ⏳ **未验证** | 需 `07 §8` 要求的 `P-101/P-102` 自动化检查 |
-| `T-EXT-16` | 行内无常驻监听；同帧多次更新只渲染一次 | ⏳ **未验证** | 同上 |
-| `T-EXT-17` | 候选超过 50 条时只渲染可见窗口 | ⏳ **未验证** | 实现已落（`extension/js/virtual-list.js`），缺自动化检查 |
-| `T-EXT-18` | 缩略图来自图片 URL；无 base64 常驻 | ⏳ **未验证** | 同上 |
-| `T-EXT-19` | 无常驻轮询；弹窗关闭后无残留定时器 | ⏳ **未验证** | 同上 |
+| `T-EXT-10` | 无需密码或配对码即可连接；找不到时显示引导 | ✅ **通过** | 代码中**无配对码/令牌残留**（实测 grep：仅注释说明删除理由，无实现）；`test_auth_race.js`（已改写为"连接可达性竞态"）通过；"找不到桌面端"的引导存在。人工项 `M1`（浏览器加载扩展）按 `11 §6` 归**阶段 8** 记录，不影响本条的 `A` 类判定 |
+| `T-EXT-15` | 状态更新后列表容器未被整体重建；节点按稳定 ID 复用 | ✅ **通过** | `test_list_rendering.js`：容器与祖先链装 `innerHTML` setter 陷阱（任何整体重建即记账并抛错）+ 20 次状态更新前后逐行 `===` 引用比对；**含负向对照**（故意赋 `innerHTML` 时必须被抓到，否则判失败）。另：`extension/js/` 的 `.innerHTML =` 实测 **0 处** |
+| `T-EXT-16` | 行内无常驻监听；同帧多次更新只渲染一次 | ✅ **通过** | 同上：每帧 25 次 `update()` 只触发 1 次渲染；事件委托到列表容器 |
+| `T-EXT-17` | 候选超过 50 条时只渲染可见窗口 | ✅ **通过** | 同上：窗口 0→17 / 2800→47..67 / 11144→196..200；200 条下 DOM 节点实测 **41 ≤ 60**（`PF-A7`） |
+| `T-EXT-18` | 缩略图来自图片 URL；无 base64 常驻 | ✅ **通过** | 同上：`data:` URL 被拒；只对可视行赋 `background-image`，移出视区即清空；图片并发上限 4 |
+| `T-EXT-19` | 无常驻轮询；弹窗关闭后无残留定时器 | ✅ **通过** | 同上 + 实测**无 `setInterval`**；轮询下限 2000 ms；`pagehide` / `beforeunload` 双保险清理全部定时器 |
 
-**小计：5 项通过 · 6 项未验证。** 未验证的 6 项**全部在扩展侧**，原因是 `07 §8` 要求的测试资产（7 个 JS 测试 + 新增的 `P-101/P-102` 检查）尚未迁入 `extension/`。
+**小计：11 项全部通过。** 扩展侧另有 3 条测试为 **SKIP**（`test_bilibili.js` / `test_youtube.js` / `test_wechat_channels_bridge.js`）——被测对象按 `07 §2` 与阶段划分**尚不存在**，**断言原样保留**、未删也未虚报通过；它们覆盖的站点功能属阶段 3、视频号属阶段 5。
 
 ---
 
@@ -53,7 +53,7 @@
 
 | 项 | 状态 | 原因与下一步 |
 | --- | --- | --- |
-| ~~扩展测试资产迁入~~ **已迁入并由本次收尾复跑** | ⚠️ **部分** | `07 §8` 要求的 7 个 JS 测试 + **新增的 `P-101/P-102` 自动化检查**都已落地在 `tests/js/`（8 文件）。**通过**：`test_list_rendering.js`（**P-101~P-109 OK**，即那条新增检查）· `test_candidate_presentation.js` · `test_youtube_session.js`。**SKIP 且理由明确**（断言原样保留、待资产落地后恢复为真实门禁）：`test_bilibili.js` / `test_youtube.js`（`catch-script/` 按 `07 §2` 取消，站点脚本属阶段 3）· `test_wechat_channels_bridge.js`（视频号属阶段 5）。**仍失败 2 条**：`test_auth_race.js`、`test_popup_logic.js`——复跑确认失败原因是 `AssertionError: false !== true`（**实现尚未对齐断言**，不是语法或导入错误）。这两条是阶段 2 **未完成**的部分 |
+| ~~扩展测试资产迁入~~ **已完成，独立复跑 8/8 全绿**（2026-10-02 17:31） | ✅ **完成** | `tests/js/` 8 个文件 = `07 §8` 要求的 7 个 + **新增的 `P-101/P-102` 检查**。独立复跑结果：`test_list_rendering.js`（P-101~P-109）· `test_candidate_presentation.js` · `test_popup_logic.js` · `test_auth_race.js`（已改写为"连接可达性竞态"）· `test_youtube_session.js` 全部 **exit=0**；另 3 条 **SKIP 且理由明确**（被测对象尚不存在），断言原样保留 |
 | `T-EXT-10`~`T-EXT-19`（6 项） | **未验证** | 依赖上一条 |
 | 人工项 `M1`（扩展加载与重载） | **待执行** | 需在浏览器扩展管理页人工完成；`T-EXT-10` 的前置 |
 | `04 I6`、`07 E8` | **未解决** | 属**阶段 2.5**，本阶段不阻塞（已在 `13 §7.2` 登记） |

@@ -663,29 +663,73 @@ async function testValidatedTaskStart() {
 }
 
 {
-    assert.strictEqual(logic.hasActiveTasks([{ status: "merging" }]), true);
-    assert.strictEqual(logic.hasActiveTasks([{ status: "imported" }, { status: "canceled" }]), false);
-    const view = logic.taskView({ id: "p1", output_name: "video.mp4", status: "downloading", progress: 50, phase_detail: "本机软件正在下载" });
+    // 03 §3.1：`plans.status` 只有 5 个值；终态判定见该表。
+    assert.strictEqual(logic.hasActiveTasks([{ status: "running" }]), true);
+    assert.strictEqual(logic.hasActiveTasks([{ status: "queued" }]), true);
+    assert.strictEqual(logic.hasActiveTasks([{ status: "completed" }, { status: "canceled" }]), false);
+    assert.strictEqual(logic.hasActiveTasks([{ status: "failed" }]), false);
+
+    const view = logic.taskView({
+        id: "p1",
+        outputName: "video.mp4",
+        status: "running",
+        phase: "downloading",
+        progress: 50,
+        phaseDetail: "本机软件正在下载",
+        downloadedBytes: 1024,
+        totalBytes: 4096,
+        createdAt: 1_700_000_000_000
+    });
     assert.strictEqual(view.progress, 50);
     assert.strictEqual(view.active, true);
     assert.strictEqual(view.detail, "本机软件正在下载");
+    assert.strictEqual(view.statusLabel, "本机正在下载", "the phase must name the current stage while running");
+    assert.strictEqual(view.processed, "1 KB");
+    assert.strictEqual(view.total, "4 KB");
+
+    // 04 §3.3.2：`totalBytes === null` = 长度未知，**不得**用 0 表示未知。
+    const unknownTotal = logic.taskView({ id: "p-unknown", status: "running", phase: "downloading", totalBytes: null });
+    assert.strictEqual(unknownTotal.total, "", "an unknown total length must render as empty, not as 0 B");
 
     const completed = logic.taskView({
         id: "p2",
-        output_name: "finished.mp4",
-        status: "completed_local",
+        outputName: "finished.mp4",
+        status: "completed",
         progress: 0,
-        final_path: "C:\\Users\\Tester\\Downloads\\留底下载器\\已完成\\finished.mp4",
-        preview_path: "C:\\Users\\Tester\\Downloads\\留底下载器\\预览\\p2.png"
+        finalPath: "C:\\Users\\Tester\\Downloads\\留底下载器\\已完成\\finished.mp4",
+        previewPath: "C:\\Users\\Tester\\Downloads\\留底下载器\\预览\\p2.png",
+        completedAt: 1_700_000_100_000,
+        createdAt: 1_700_000_000_000
     });
     assert.strictEqual(completed.progress, 100, "a completed desktop task must never remain at 0% in the popup");
     assert.strictEqual(completed.canOpenOutput, true);
-    assert.strictEqual(completed.canImportExisting, true, "a download-only result must be importable without downloading again");
+    assert.strictEqual(completed.canImportExisting, true, "a completed download must be importable without downloading again");
     assert.strictEqual(completed.finalPath.endsWith("finished.mp4"), true);
     assert.strictEqual(completed.hasLocalPreview, true);
+    assert.strictEqual(completed.statusLabel, "已完成");
 
-    const validating = logic.taskView({ status: "validating", progress: 100 });
+    // B-210 / B-312：**只有 `completed` 允许 100**，其余状态必须 < 100。
+    const validating = logic.taskView({ id: "p3", status: "running", phase: "validating", progress: 100 });
     assert.strictEqual(validating.progress, 99, "validation must not look complete before local delivery");
+    assert.strictEqual(validating.statusLabel, "正在校验媒体");
+    const queued = logic.taskView({ id: "p4", status: "queued", progress: 100 });
+    assert.strictEqual(queued.progress, 99);
+    assert.strictEqual(queued.statusLabel, "等待下载");
+
+    // 重试不是独立状态：用 `attempt_count` + `next_attempt_at` 表达（03 §3.1）。
+    const waitingRetry = logic.taskView({
+        id: "p5",
+        status: "queued",
+        attemptCount: 2,
+        retryMax: 5,
+        nextAttemptAt: Date.now() + 60_000
+    });
+    assert.strictEqual(waitingRetry.statusLabel, "等待重试 · 第 2/5 次");
+    const retryable = logic.taskView({ id: "p6", status: "failed", errorCode: "download_failed", errorMessage: "网络中断" });
+    assert.strictEqual(retryable.canRetry, true);
+    assert.strictEqual(retryable.error, "网络中断");
+    assert.strictEqual(retryable.errorCode, "download_failed");
+
     const named = logic.normalizeOutputName("bad<>name.mp4");
     assert.strictEqual(named.ok, true);
     assert.strictEqual(named.value, "bad__name.mp4");

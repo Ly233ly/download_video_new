@@ -122,12 +122,13 @@ async function eagleBridgeProbePort(port) {
             EAGLE_BRIDGE_HEALTH_TIMEOUT_MS
         );
         const response = payload.response;
-        const result = payload.result || {};
+        // 04 §2.3.1：成功外壳是 `{ ok: true, data: <T> }`，`Health` 在 `data` 里。
+        const health = payload.result?.data || payload.result || {};
         return {
             reachable: Boolean(response?.ok),
-            identified: EagleBridgeAuthLogic.isDesktopHealth(result),
+            identified: response?.ok && EagleBridgeAuthLogic.isDesktopHealth(health),
             reason: response?.ok ? "" : `http_${Number(response?.status) || 0}`,
-            capabilities: EagleBridgeAuthLogic.capabilitySnapshot(result)
+            capabilities: EagleBridgeAuthLogic.capabilitySnapshot(health)
         };
     } catch (error) {
         return { reachable: false, identified: false, reason: String(error?.name || "unreachable") };
@@ -814,12 +815,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     { cache: "no-store" },
                     EAGLE_BRIDGE_HEALTH_TIMEOUT_MS
                 );
-                if (!health.response?.ok || !EagleBridgeAuthLogic.isDesktopHealth(health.result)) {
+                // 04 §2.3.1：成功外壳是 `{ ok: true, data: <T> }`。
+                const payload = health.result?.data || health.result || {};
+                if (!health.response?.ok || !EagleBridgeAuthLogic.isDesktopHealth(payload)) {
                     const error = new Error("留底桌面端未响应健康检查");
                     error.code = "desktop_unreachable";
                     throw error;
                 }
-                return EagleBridgeAuthLogic.capabilitySnapshot(health.result);
+                return EagleBridgeAuthLogic.capabilitySnapshot(payload);
             }
             case "siteStatus":
                 return eagleBridgeSiteStatus(String(message.domain || ""));

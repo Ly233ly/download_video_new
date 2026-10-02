@@ -83,6 +83,8 @@ node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8')
 | 站点专用注入脚本（B 站 / YouTube / 搜索） | **不提供**。`07` §2 已取消 `catch-script/`，归 `adapters/<site>/extension.js`（阶段 3）。属阶段性功能回退 |
 | 抖音 / Instagram / Vimeo 的站点专用识别 | 同上；相关分支已从扩展源码删除，`test_bilibili.js` / `test_youtube.js` 保留全部断言但在目标缺失时 SKIP |
 | 视频号 bridge | 属阶段 5；`test_wechat_channels_bridge.js` 同样 SKIP |
+| 增强发现入口 | 弹窗设置页的「诊断」分组保留一个**禁用**的占位行，说明站点专用注入脚本不在本版本内提供。`Message: "script"` 恒返回 `"error no exists"`，与旧版的行为契约一致 |
 | `api-port.json` 端口发现（`AD-5` / B-214） | **部分实现**。MV3 扩展无权读取任意本地文件；当前按默认端口 + 紧随其后的备用端口逐个 `/health` 探测。收敛在 `eagle-bridge.js` 的 `eagleBridgeApiPortHint()` 一处 |
-| `04 §7 I1`/`I2`/`I4`/`I5` | 端点 schema、`PlanView`/`JobView` 字段、`/api/source` 事件全集、健康接口能力字段全集**尚未回填**。`taskView()` 采用「新端点字段优先、旧别名兜底」，回填后只需删别名 |
+| `04 §7 I1`/`I2`/`I4`/`I5` | **已由协作者回填**（`04 §2.3.1` / `§2.3.2` / `§3.3`）：`service` 固定 `"liudi-desktop"`、`apiProtocol` 当前为 `1`、`/api/plans` 返回 `Paged<PlanView>`。扩展已按该 schema 对齐；`taskView()` 仍保留旧 snake_case 别名作过渡兜底 |
 | 浏览器下载模式的完整恢复 | 属阶段 2.5。客户端协议（`PUT`/`POST`/`DELETE`）与上限预检已实现；Worker 回收后地址丢失的任务无法续传（B-223 的固有边界），由桌面端按会话空闲超时收尾 |
+| `AD-5` 端口发现只做到"最佳努力" | `api-port.json` 的读取钩子 `eagleBridgeApiPortHint()` **当前恒返回 0**（MV3 扩展无权读取任意本地文件）。这是 B-214 的**部分实现**：主端口 47652 可用，备用端口只在紧随其后的序号范围内探测 |

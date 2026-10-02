@@ -41,20 +41,38 @@ assert.strictEqual(auth.normalizeState("nonsense"), "checking");
 assert.strictEqual(auth.normalizeState(""), "checking");
 assert.strictEqual(auth.normalizeState("OFFLINE"), "offline");
 
-assert.strictEqual(auth.isDesktopHealth({ ok: true, service: "idm-eagle" }), true);
+assert.strictEqual(auth.HEALTH_SERVICE_ID, "liudi-desktop",
+    "04 §2.3.2: /health.service is fixed to \"liudi-desktop\" (07 AD-2)");
+assert.strictEqual(auth.isDesktopHealth({ ok: true, service: "liudi-desktop" }), true);
 assert.strictEqual(auth.isDesktopHealth({ ok: true, service: "something-else" }), false,
     "another local service must not be mistaken for the desktop app");
-assert.strictEqual(auth.isDesktopHealth({ ok: false, service: "idm-eagle" }), false);
+assert.strictEqual(auth.isDesktopHealth({ ok: false, service: "liudi-desktop" }), false);
+assert.strictEqual(auth.isDesktopHealth({ ok: true, service: "idm-eagle" }), false,
+    "the legacy service id must no longer be accepted");
 
-const capabilities = auth.capabilitySnapshot({ service: "idm-eagle", version: "2.0.0", eagleAvailable: false, extra: "drop-me" });
-assert.deepStrictEqual(capabilities, {
-    service: "idm-eagle",
+// 04 §2.3.2 的 `Health` 表就是能力字段全集。
+const capabilities = auth.capabilitySnapshot({
+    service: "liudi-desktop",
     version: "2.0.0",
+    apiProtocol: 1,
     eagleAvailable: false,
-    browserDownloadMode: null
-}, "only known capability fields may leave the health response");
+    mediaToolsReady: true,
+    extra: "drop-me"
+});
+assert.deepStrictEqual(capabilities, {
+    service: "liudi-desktop",
+    version: "2.0.0",
+    apiProtocol: 1,
+    eagleAvailable: false,
+    mediaToolsReady: true
+}, "only the documented Health fields may leave the health response");
 assert.strictEqual(auth.capabilitySnapshot({ version: "2.0.0" }).eagleAvailable, null,
-    "04 §7 I5 is unbackfilled — an absent capability must be null, not a guess");
+    "an absent capability must be null, not a guess");
+
+// 04 §2.3.2：协议不匹配必须被识别出来（界面据此提示并禁用依赖新协议的动作）。
+assert.strictEqual(auth.apiProtocolMatches({ apiProtocol: 1 }), true);
+assert.strictEqual(auth.apiProtocolMatches({ apiProtocol: 2 }), false);
+assert.strictEqual(auth.apiProtocolMatches({}), false, "a missing protocol must not be treated as compatible");
 
 assert.strictEqual(auth.apiBase(47652), "http://127.0.0.1:47652", "04 §2.1 binds to 127.0.0.1 only");
 assert.strictEqual(auth.apiBase(0), "");
@@ -228,7 +246,10 @@ assert.strictEqual(auth.apiBase("nope"), "");
             return {
                 ok: true,
                 status: 200,
-                json: async () => ({ ok: true, service: "idm-eagle", version: "2.0.0" })
+                json: async () => ({
+                    ok: true,
+                    data: { service: "liudi-desktop", version: "2.0.0", apiProtocol: 1, eagleAvailable: true, mediaToolsReady: true }
+                })
             };
         }
         return { ok: false, status: 404, json: async () => ({ ok: false, error: { code: "not_found", message: "no" } }) };
@@ -242,13 +263,49 @@ assert.strictEqual(auth.apiBase("nope"), "");
 
     assert.strictEqual(freshResult.stale, false, "the newest connection probe must commit");
     assert.strictEqual(staleResult.stale, true, "the superseded connection probe must report itself stale");
-    assert.strictEqual(staleResult.connection, "connected",
-        "a stale probe must not commit its own (older) conclusion");
     assert.strictEqual(stateStore.downloadTransferStation.connection, "connected",
         "the stored connection state must reflect the newest probe");
     assert.strictEqual(stateStore.downloadTransferStation.port, 51234);
+    assert.strictEqual(stateStore.downloadTransferStation.apiProtocol, 1,
+        "the health capability snapshot must be persisted for the protocol check");
     assert.ok(stateStore.downloadTransferStation.token === undefined,
         "AD-1: no token may ever be written back into extension state");
+
+    // **竞态本体**：先发起但后返回的那次探测不得覆盖更新结论。
+    // 复现 `eagleBridgeRefreshConnection()` 的写法：探测开始时取一张闸门票，
+    // 结论返回后与最新票比对，不一致即丢弃。
+    {
+        const gate = auth.createLatestRequestGate();
+        const committed = { connection: "checking" };
+        const probe = async (outcome, delayMs) => {
+            const ticket = gate.begin();
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            if (!gate.isCurrent(ticket)) return { outcome, stale: true };
+            committed.connection = outcome;
+            return { outcome, stale: false };
+        };
+        const [slow, fast] = await Promise.all([probe("offline", 40), probe("connected", 5)]);
+        assert.strictEqual(fast.stale, false, "the newest probe must commit its conclusion");
+        assert.strictEqual(slow.stale, true, "the superseded probe must be discarded");
+        assert.strictEqual(committed.connection, "connected",
+            "a slow, older probe must not clobber the newer connection conclusion");
+    }
+
+    // 串行化写入只保证"不互相覆盖"，**不保证顺序语义**：谁最后入队谁最后落盘。
+    // 顺序语义由上面的闸门负责——这里验证队列本身不会丢字段。
+    const queuedState = { connection: "checking", port: 47652, apiProtocol: null };
+    const queuedWriter = auth.createStateUpdateQueue(
+        async () => ({ ...queuedState }),
+        async next => { Object.assign(queuedState, next); }
+    );
+    await Promise.all([
+        queuedWriter({ connection: "connected" }),
+        queuedWriter({ port: 51234, apiProtocol: 1 })
+    ]);
+    assert.strictEqual(queuedState.connection, "connected");
+    assert.strictEqual(queuedState.port, 51234,
+        "serialized writes must not drop a field written by a concurrent update");
+    assert.strictEqual(queuedState.apiProtocol, 1);
 
     // 桌面端不可达时必须落成 offline，并给出启动引导所需的结论。
     sandbox.fetch = async () => { throw new Error("ECONNREFUSED"); };
