@@ -28,6 +28,8 @@
 > **不要**用「在 `frontend/` 放嵌套 `go.mod`」来隔离：`//go:embed` **不允许跨模块**嵌入，加了之后 `main.go` 的 `//go:embed all:frontend/dist` 会直接编译失败（实测 `cannot embed directory frontend/dist: in different module`）；把前端产物移出 `frontend/` 属于架构改动（[01](01-ARCHITECTURE.md)），代价更大。
 >
 > 所以 Go 命令的范围**显式给出**：`build/check-go.ps1` 用 `git ls-files '*.go'` 反推本项目自己的包目录——以「仓库跟踪的文件」为准，天然排除 `node_modules` 与一切忽略项，且**新增顶层包时不需要改脚本**。手工跑测试同理，用 `go test ./ ./internal/...`，不要用裸 `./...`。
+>
+> 干净克隆里还要**先构建前端**才能跑任何 Go 命令：`main.go` 的 `//go:embed all:frontend/dist` 要求该目录存在，缺它实测报 `pattern all:frontend/dist: no matching files found`（前端产物不入库，`.gitignore` 排除了 `dist/`）。`wails build` 会自己先做这一步；`build/check-go.ps1` 对该前置做了显式检查并按「未执行」处理。
 
 > **含中文的 `.ps1` 必须存为 UTF-8 with BOM**：Windows PowerShell 5.1 会把无 BOM 的脚本按系统 ANSI 代码页解码，中文注释与字符串变乱码后**可能连引号配对都错**——实测 `build/check-go.ps1` 无 BOM 时报 `MissingEndCurlyBrace` 直接无法解析。纯 ASCII 写的脚本（如 [`tools/Check-ContractCoverage.ps1`](../tools/Check-ContractCoverage.ps1)）不受影响，因此两种写法都可以，但**要么全 ASCII，要么带 BOM**。
 

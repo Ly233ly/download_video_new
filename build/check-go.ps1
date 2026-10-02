@@ -50,6 +50,22 @@ if ($null -eq $go) {
 }
 Write-Output ('go    ' + (& go version 2>&1))
 
+# --- 前置：前端产物 ---
+# main.go 的 //go:embed all:frontend/dist 依赖 frontend/dist，而它不入库
+# （.gitignore），干净克隆里没有。缺了它连 go vet 都过不去——实测报
+# pattern all:frontend/dist: no matching files found。这是前置条件缺失、
+# 不是检查未通过，所以按「未执行」处理（退出码 2）并给出构建指引。
+if (-not (Test-Path 'frontend/dist')) {
+    Write-Output ''
+    Write-Output 'SKIP  frontend/dist 不存在（干净克隆尚未构建前端）'
+    Write-Output '      main.go 的 //go:embed all:frontend/dist 依赖它，缺了它 go vet 必然失败。'
+    Write-Output '      先构建前端：cd frontend; npm install; npm run build'
+    Write-Output '      也可直接用 wails build —— 它会先构建前端再编译 Go。'
+    Write-Output ''
+    Write-Output 'RESULT: INCOMPLETE（未执行：前端产物未构建）——不视为通过'
+    exit 2
+}
+
 # --- 范围：仓库跟踪的 .go 文件 → 文件列表（gofmt）+ 包目录（vet / lint）---
 $goFiles = @(& git ls-files '*.go' 2>$null)
 if ($goFiles.Count -eq 0) {
