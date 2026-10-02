@@ -25,6 +25,9 @@ const EAGLE_BRIDGE_MAX_PENDING_EVENTS = 200;
 const EAGLE_BRIDGE_SITE_CACHE_TTL = 30 * 1000;
 const EAGLE_BRIDGE_API_TIMEOUT_MS = 8000;
 const EAGLE_BRIDGE_HEALTH_TIMEOUT_MS = 2500;
+// `GET /api/plans` 的 `limit` 默认 50，且**不静默截断**（04 §2.3.2）。
+// 弹窗是连续滚动列表（B-310），这里显式取一页的较大上限。
+const EAGLE_BRIDGE_PLANS_LIMIT = 200;
 
 const METHODS_WITH_JSON_BODY = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -47,8 +50,9 @@ function eagleBridgeDefaultState() {
         connection: "checking",
         service: "",
         version: "",
+        apiProtocol: null,
         eagleAvailable: null,
-        browserDownloadMode: null,
+        mediaToolsReady: null,
         pendingEvents: [],
         uploads: {},
         lastPlanId: "",
@@ -176,15 +180,18 @@ async function eagleBridgeRefreshConnection(options = {}) {
         connection: discovery.connection,
         service: capabilities.service || "",
         version: capabilities.version || "",
+        apiProtocol: capabilities.apiProtocol ?? null,
         eagleAvailable: capabilities.eagleAvailable ?? null,
-        browserDownloadMode: capabilities.browserDownloadMode ?? null
+        mediaToolsReady: capabilities.mediaToolsReady ?? null
     });
     eagleBridgeScheduleRetry();
     return {
         connection: discovery.connection,
         port: discovery.port,
         version: capabilities.version || "",
+        apiProtocol: capabilities.apiProtocol ?? null,
         eagleAvailable: capabilities.eagleAvailable ?? null,
+        mediaToolsReady: capabilities.mediaToolsReady ?? null,
         stale: false
     };
 }
@@ -744,9 +751,7 @@ async function eagleBridgeResumeUploads() {
 
 async function eagleBridgeReadMode() {
     const data = await eagleBridgeApi("/api/mode", { method: "GET" });
-    const enabled = Boolean(data?.browserDownloadMode);
-    await eagleBridgeUpdateState({ browserDownloadMode: enabled });
-    return enabled;
+    return Boolean(data?.browserDownloadMode);
 }
 
 async function eagleBridgeWriteMode(enabled) {
@@ -754,9 +759,7 @@ async function eagleBridgeWriteMode(enabled) {
         method: "POST",
         body: JSON.stringify({ browserDownloadMode: Boolean(enabled) })
     });
-    const next = Boolean(data?.browserDownloadMode);
-    await eagleBridgeUpdateState({ browserDownloadMode: next });
-    return next;
+    return Boolean(data?.browserDownloadMode);
 }
 
 chrome.alarms.onAlarm.addListener(alarm => {
@@ -786,8 +789,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     connection: state.connection,
                     port: state.port,
                     version: state.version,
+                    apiProtocol: state.apiProtocol ?? null,
                     eagleAvailable: state.eagleAvailable,
-                    browserDownloadMode: state.browserDownloadMode,
+                    mediaToolsReady: state.mediaToolsReady ?? null,
                     pendingEvents: (state.pendingEvents || []).length,
                     lastPlanId: state.lastPlanId
                 };
@@ -795,7 +799,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             case "connect": {
                 const refreshed = await eagleBridgeRefreshConnection();
                 const state = await eagleBridgeGetState();
-                return { ...refreshed, pendingEvents: (state.pendingEvents || []).length };
+                let browserDownloadMode = null;
+                if (refreshed.connection === EagleBridgeAuthLogic.CONNECTION_STATES.CONNECTED) {
+                    // `/api/mode` 的权威在桌面端；弹窗打开时读一次即可（04 §2.5）。
+                    browserDownloadMode = await eagleBridgeReadMode().catch(() => null);
+                }
+                return { ...refreshed, browserDownloadMode, pendingEvents: (state.pendingEvents || []).length };
             }
             case "health": {
                 const state = await eagleBridgeGetState();

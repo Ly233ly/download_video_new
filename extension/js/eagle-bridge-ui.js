@@ -31,6 +31,8 @@
     const CANDIDATE_COALESCE_MS = 120;      // 候选突发的数据侧合并
     const TABS = ["candidates", "tasks", "settings"];
     const FALLBACK_ICON = "icons/icon-128.png";
+    // 04 §2.3.2：`Health.apiProtocol` 当前为 1。不匹配时提示并禁用依赖新协议的动作。
+    const EXPECTED_API_PROTOCOL = 1;
 
     const zhHans = {
         product: "留底下载器", candidates: "候选", tasks: "任务", settings: "设置",
@@ -55,6 +57,7 @@
         batchImport: "批量导入 Eagle", batchDownload: "批量仅下载",
         downloadToEagle: "下载到 Eagle", downloadToComputer: "下载到电脑",
         desktopUnavailable: "桌面端未连接", desktopUnavailableHint: "请先启动留底桌面端；连接恢复后即可继续下载。",
+        protocolMismatch: "桌面端 API 协议为 v{actual}，本扩展期望 v{expected}；请更新到同一版本后再下载。",
         eagleUnavailable: "Eagle 未连接",
         eagleOptionalHint: "Eagle 未安装或未启动，不影响下载；文件会保留在电脑中，启动 Eagle 后可从任务列表补导。",
         localDownloadInfo: "所选内容将在本机下载、合并并保留，不需要 Eagle。",
@@ -109,6 +112,7 @@
         desktopVersion: "",
         port: 0,
         eagleAvailable: null,
+        apiProtocol: null,
         browserDownloadMode: false,
         modeBusy: false,
         candidates: [],
@@ -689,14 +693,16 @@
         const delivery = logic.deliveryCapabilities(state);
         const group = activeGroup();
         const selection = state.selections.get(group?.id);
-        const validation = !delivery.canDownload
+        // 04 §2.3.2：协议不匹配时禁用依赖新协议的动作，并明示原因，不得静默。
+        const blocked = !delivery.canDownload || protocolMismatch();
+        const validation = blocked
             ? { ok: false }
             : logic.validateSelection(group, selection, { desktopAvailable: true });
         const disabled = !validation.ok || state.busy;
         const signature = [
             group?.id || "", disabled ? "1" : "0", state.busy ? "1" : "0",
             delivery.preferLocal ? "local" : delivery.canImport ? "eagle" : "none",
-            state.batchMode ? "1" : "0"
+            state.batchMode ? "1" : "0", protocolMismatch() ? "proto" : "ok"
         ].join("|");
         if (footer.dataset.signature === signature) return;
         footer.dataset.signature = signature;
@@ -724,8 +730,9 @@
         if (delivery.preferLocal) secondary.hidden = true;
         contact(footer, primary, secondary);
 
-        const note = !delivery.canDownload ? t("desktopUnavailableHint")
-            : delivery.preferLocal ? t("eagleOptionalHint") : "";
+        const note = protocolMismatch() ? t("protocolMismatch", { expected: EXPECTED_API_PROTOCOL, actual: state.apiProtocol })
+            : !delivery.canDownload ? t("desktopUnavailableHint")
+                : delivery.preferLocal ? t("eagleOptionalHint") : "";
         if (note) footer.appendChild(el("p", { className: "bridge-legal-note", text: note }));
     }
 
@@ -1084,6 +1091,14 @@
                     : state.connection === "checking" ? t("checking") : t("offline")
             })
         ));
+        // 04 §2.3.2：协议不匹配必须明示，不得静默。
+        if (protocolMismatch()) {
+            body.appendChild(el("p", {
+                className: "bridge-sync-warning",
+                attrs: { role: "alert" },
+                text: t("protocolMismatch", { expected: EXPECTED_API_PROTOCOL, actual: state.apiProtocol })
+            }));
+        }
         if (!state.desktopAvailable) {
             body.appendChild(el("div", {
                 className: "bridge-connect-box",
@@ -1190,7 +1205,9 @@
                 desktopAvailable: data?.connection === "connected",
                 version: String(data?.version || ""),
                 port: Number(data?.port || 0),
-                eagleAvailable: typeof data?.eagleAvailable === "boolean" ? data.eagleAvailable : null
+                apiProtocol: Number.isFinite(Number(data?.apiProtocol)) ? Number(data.apiProtocol) : null,
+                eagleAvailable: typeof data?.eagleAvailable === "boolean" ? data.eagleAvailable : null,
+                browserDownloadMode: typeof data?.browserDownloadMode === "boolean" ? data.browserDownloadMode : null
             };
         } catch (_error) {
             next = { connection: "offline", desktopAvailable: false };
@@ -1200,13 +1217,25 @@
         state.desktopAvailable = next.desktopAvailable;
         state.desktopVersion = next.version || "";
         state.port = next.port || 0;
+        if (next.apiProtocol !== undefined) state.apiProtocol = next.apiProtocol;
         if (next.eagleAvailable !== undefined && next.eagleAvailable !== null) state.eagleAvailable = next.eagleAvailable;
+        if (next.browserDownloadMode !== undefined && next.browserDownloadMode !== null) state.browserDownloadMode = next.browserDownloadMode;
         patchHeader();
         renderSettings();
         renderCandidateFooter();
         renderTaskHeader();
         renderTaskFooter();
         return state.desktopAvailable;
+    }
+
+    /**
+     * 04 §2.3.2：`apiProtocol` 与本扩展期望值不等时必须**提示**并禁用依赖新协议
+     * 的动作，**不得静默**。
+     */
+    function protocolMismatch() {
+        if (!state.desktopAvailable) return false;
+        if (state.apiProtocol === null) return false;
+        return state.apiProtocol !== EXPECTED_API_PROTOCOL;
     }
 
     async function refreshCandidates() {
@@ -1229,9 +1258,10 @@
             return false;
         }
         try {
-            const plans = await ask({ eagleBridge: "plans" });
+            // `GET /api/plans` 返回 `Paged<PlanView>`（04 §3.3.1）。
+            const page = await ask({ eagleBridge: "plans" });
             if (state.disposed || ticket !== frames.plansTicket) return false;
-            state.plans = Array.isArray(plans) ? plans : [];
+            state.plans = Array.isArray(page?.items) ? page.items : [];
             state.taskSyncError = "";
             renderTasks();
             patchBadges();
@@ -1537,14 +1567,11 @@
     }
 
     async function readBrowserDownloadModeOnce() {
+        // 模式已在 `connect` 里随健康响应之外的 `/api/mode` 读回（04 §2.5：
+        // 权威在桌面端，弹窗打开时读一次）；这里只负责在有结果时刷新设置页。
         if (modeReadDone || !state.desktopAvailable) return;
         modeReadDone = true;
-        try {
-            state.browserDownloadMode = Boolean(await ask({ eagleBridge: "readMode" }));
-            if (!state.disposed) renderSettings();
-        } catch (_error) {
-            modeReadDone = false;
-        }
+        if (!state.disposed) renderSettings();
     }
 
     async function connectDesktop() {

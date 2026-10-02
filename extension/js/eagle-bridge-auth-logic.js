@@ -22,7 +22,13 @@
         OFFLINE: "offline"
     });
 
-    const HEALTH_SERVICE_ID = "idm-eagle";
+    // 04 §2.3.2 `GET /health`：`service` 固定 `"liudi-desktop"`，扩展据此确认
+    // 对端是本软件，而不是占用同一端口的其他进程（07 AD-2）。
+    const HEALTH_SERVICE_ID = "liudi-desktop";
+    // 04 §2.3.2：`apiProtocol` 当前为 1。不兼容变更（增删端点、改字段语义、
+    // 改取值域）必须 +1；不匹配时**提示**版本不匹配并禁用依赖新协议的动作，
+    // **不得静默**。
+    const EXPECTED_API_PROTOCOL = 1;
 
     const KNOWN_STATES = new Set(Object.values(CONNECTION_STATES));
 
@@ -74,17 +80,25 @@
 
     /**
      * 能力快照（07 §7 `AD-4`：健康接口返回的字段）。
-     * 只保留已知字段并归一化类型；未知字段一律丢弃，避免把桌面端内部结构
-     * 带进弹窗状态。`04 §7 I5` 的能力字段全集**尚未回填**，未知即 `null`。
+     * 字段与类型严格按 04 §2.3.2 的 `Health`（**该表就是全集**）；
+     * 未知字段一律丢弃，避免把桌面端内部结构带进弹窗状态。
      */
     function capabilitySnapshot(payload = {}) {
         const source = payload && typeof payload === "object" ? payload : {};
+        const apiProtocol = Number(source.apiProtocol);
         return {
             service: String(source.service || ""),
             version: String(source.version || "").slice(0, 40),
+            apiProtocol: Number.isFinite(apiProtocol) ? Math.floor(apiProtocol) : null,
             eagleAvailable: typeof source.eagleAvailable === "boolean" ? source.eagleAvailable : null,
-            browserDownloadMode: typeof source.browserDownloadMode === "boolean" ? source.browserDownloadMode : null
+            mediaToolsReady: typeof source.mediaToolsReady === "boolean" ? source.mediaToolsReady : null
         };
+    }
+
+    /** 协议版本是否与本扩展期望的一致（不匹配时界面必须明示，不得静默）。 */
+    function apiProtocolMatches(capabilities) {
+        const protocol = Number(capabilities?.apiProtocol);
+        return Number.isFinite(protocol) && protocol === EXPECTED_API_PROTOCOL;
     }
 
     /**
@@ -208,10 +222,12 @@
     return {
         CONNECTION_STATES,
         HEALTH_SERVICE_ID,
+        EXPECTED_API_PROTOCOL,
         normalizeState,
         resolveConnection,
         isDesktopHealth,
         capabilitySnapshot,
+        apiProtocolMatches,
         apiBase,
         createStateUpdateQueue,
         createLatestRequestGate,

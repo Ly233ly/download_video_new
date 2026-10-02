@@ -2,7 +2,9 @@ package ui
 
 import (
 	"context"
+	"errors"
 
+	"github.com/Ly233ly/download_video_new/internal/platform"
 	"github.com/Ly233ly/download_video_new/internal/service"
 )
 
@@ -67,4 +69,20 @@ func (u *UI) PlanRetry(ctx context.Context, id string) (service.PlanView, error)
 // **只删记录，不删文件**——「已完成」目录里的交付副本是用户资产（B-402/B-405）。
 func (u *UI) PlanRemove(ctx context.Context, id string) error {
 	return u.svc.PlanRemove(ctx, id)
+}
+
+// PlanOpenOutput 打开计划输出所在的文件夹（B-309）。
+//
+// `completed` 的计划必须给出最终路径与"打开所在文件夹"入口；这里只做两件事：
+// 取路径、交给平台层打开。**空路径直接拒绝**——计划还没交付时不该弹出一个
+// 空目录，那会让人以为文件丢了（B-403：归属不明时如实报告，不假装成功）。
+func (u *UI) PlanOpenOutput(ctx context.Context, id string) error {
+	view, err := u.svc.PlanGet(ctx, id)
+	if err != nil {
+		return err
+	}
+	if view.FinalPath == "" {
+		return errors.New("该任务还没有输出文件，暂时无法打开")
+	}
+	return platform.OpenFolder(view.FinalPath)
 }

@@ -106,12 +106,18 @@ export function PlanRow({ id, offset }: { id: string; offset?: number }) {
         )}
 
         {/* 状态说明行。操作失败的原因**并入这一行**（而不是另起一行）：
-            行高是固定常量（[16 §4.5]），多一行就会把下面的操作挤出可视区。 */}
+            行高是固定常量（[16 §4.5]），多一行就会把下面的操作挤出可视区。
+            这一行**不是** live region——进度每 200 ms 更新一次，做成 live region
+            会把读屏器刷屏；只有失败信息那个 span 带 role="status"。 */}
         {(caption !== '' || rowError) && (
-          <p className="truncate text-[12.5px] text-content-3" role="status">
+          <p className="truncate text-[12.5px] text-content-3">
             {caption}
             {caption !== '' && rowError ? ' · ' : ''}
-            {rowError && <span className="text-err">{rowError}</span>}
+            {rowError && (
+              <span className="text-err" role="status">
+                {rowError}
+              </span>
+            )}
           </p>
         )}
 
