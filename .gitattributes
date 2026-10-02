@@ -1,0 +1,5 @@
+# 逐字可比：生成物必须与生成脚本的结果完全一致（[14 §4.1]、[12 §6.2] 第 6 项门禁）。
+# 本机（以及任何 core.autocrlf=true 的环境）在**检出**时会把文本文件换成 CRLF，
+# 而 build/gen-site-adapters.ps1 写的是 LF —— 于是全新克隆后 `-Check` 会必然报"不一致"。
+# 那不是内容不一致，是换行被 git 改了。这条把该文件钉死为不转换。
+extension/site-adapters.json -text
