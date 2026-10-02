@@ -53,7 +53,7 @@
 
 | 项 | 状态 | 原因与下一步 |
 | --- | --- | --- |
-| ~~扩展测试资产迁入~~ **已迁入并于本次收尾验证** | ✅ **完成** | `07 §8` 要求的 7 个 JS 测试 + **新增的 `P-101/P-102` 自动化检查**都已落地在 `tests/js/`（8 文件）。实测：`test_list_rendering.js`（**P-101~P-109 OK**）· `test_candidate_presentation.js` · `test_youtube_session.js` 通过；`test_bilibili.js` / `test_youtube.js` / `test_wechat_channels_bridge.js` **SKIP 且理由明确**（`catch-script/` 按 `07 §2` 取消、视频号属阶段 5），断言原样保留待阶段 3 恢复；`test_auth_race.js` 与 `test_popup_logic.js` 当时**失败**（该轨道编辑收尾中，需复跑） |
+| ~~扩展测试资产迁入~~ **已迁入并由本次收尾复跑** | ⚠️ **部分** | `07 §8` 要求的 7 个 JS 测试 + **新增的 `P-101/P-102` 自动化检查**都已落地在 `tests/js/`（8 文件）。**通过**：`test_list_rendering.js`（**P-101~P-109 OK**，即那条新增检查）· `test_candidate_presentation.js` · `test_youtube_session.js`。**SKIP 且理由明确**（断言原样保留、待资产落地后恢复为真实门禁）：`test_bilibili.js` / `test_youtube.js`（`catch-script/` 按 `07 §2` 取消，站点脚本属阶段 3）· `test_wechat_channels_bridge.js`（视频号属阶段 5）。**仍失败 2 条**：`test_auth_race.js`、`test_popup_logic.js`——复跑确认失败原因是 `AssertionError: false !== true`（**实现尚未对齐断言**，不是语法或导入错误）。这两条是阶段 2 **未完成**的部分 |
 | `T-EXT-10`~`T-EXT-19`（6 项） | **未验证** | 依赖上一条 |
 | 人工项 `M1`（扩展加载与重载） | **待执行** | 需在浏览器扩展管理页人工完成；`T-EXT-10` 的前置 |
 | `04 I6`、`07 E8` | **未解决** | 属**阶段 2.5**，本阶段不阻塞（已在 `13 §7.2` 登记） |
