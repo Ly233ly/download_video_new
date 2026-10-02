@@ -127,6 +127,26 @@ adapters/
 
 **契约 A-105**：`extension/site-adapters.json` 是**生成物**，禁止手工编辑。文件头必须带 `"generated": true` 与 `"source": "adapters/"`，生成物规则见 [12 §6.3](12-CONVENTIONS.md)。
 
+### 4.1 生成步骤（`SA2` 已定）
+
+由**一个独立脚本** `build/gen-site-adapters.ps1` 完成：读 `adapters/*/adapter.json`，按上表抽取扩展需要的 `match` / `identity` / `capture` / `title` 四组字段，写出 `extension/site-adapters.json`。
+
+| 时机 | 用法 | 为什么必须跑 |
+| --- | --- | --- |
+| 任何 `adapters/` 改动之后、提交之前 | 生成 | 产物必须与唯一事实源一致（A-104） |
+| 打包 / 分发扩展之前 | 生成 | 扩展包内必须带最新副本——桌面端未安装时扩展也要能发现候选（A-104） |
+| 提交门禁第 6 项（[12 §6.2](12-CONVENTIONS.md)） | 校验（`-Check`，**不写盘**） | 产物与 `adapters/` 不一致即失败。门禁**不得**靠静默重写来"通过"——那会把手工改动掩盖掉（T-ADP-03 的另一半"下次构建覆盖"仍由生成模式保证） |
+
+**为什么不并入既有脚本、也不挂到 `wails build`**：
+
+- [12 §1.1](12-CONVENTIONS.md) 已把 `build/` 定义为**构建脚本**目录；`tools/` 现存的是只读检查脚本（`tools/Check-ContractCoverage.ps1`），不产出文件。
+- `build/check-go.ps1` 的职责被 [12 §10](12-CONVENTIONS.md) 的 `Z1` 限定为「**门禁第 1 项**：Go 格式化与静态检查」，它的范围靠 `git ls-files '*.go'` 反推；塞进适配器抽取会让一个脚本承担两项门禁、退出码语义（0/1/2）也被两类失败共用。
+- `wails.json` 的钩子只有 `frontend:*` 那几条前端 npm 命令（**实读**：`frontend:install` / `frontend:build` / `frontend:dev:*`），没有任何"构建后"钩子；把适配器抽取挂上去，会让**扩展**的产物依赖**桌面端**的前端构建。
+
+**阶段 2 不需要这一步**：消费这份产物的适配器加载与匹配（§5.3）在阶段 3 才落地——[13 §6](13-ROADMAP.md) 把「`extension/site-adapters.json` 构建生成」明确列在阶段 3，其判据 `T-ADP-03` 也归在阶段 3（[11 §6](11-ACCEPTANCE.md) 的阶段表把「全部 `T-ADP-*`」列在阶段 3）；阶段 2 的扩展只做通用发现与列表重写（[13 §5](13-ROADMAP.md) 的 `D2`），不读适配器数据。因此脚本与扩展侧的适配器加载一起在**阶段 3 第一次改动 `adapters/` 的那次提交**里落地，**不得**提前产出一个空或过期的生成物。
+
+> 这一步**不违反** [12 §9](12-CONVENTIONS.md) 的 `C9`（禁止引入构建步骤到浏览器扩展）：它只往 `extension/` 写一个数据文件，不参与扩展 JS 的转换或打包——扩展仍是"源码即产物，无打包器"（[07 §1](07-EXTENSION.md)、[07 §2](07-EXTENSION.md)）。
+
 **这样做的好处**：加站点只改一个目录；扩展侧不再有与桌面端重复的 ID 解析逻辑（旧实现正是两端各写一遍）。
 
 ---
@@ -372,7 +392,7 @@ adapters/
 5. 写 `README.md`（§7.2 的七个小节）。
 6. 把真实页面存成 `fixtures/`，写离线测试。
 7. 在 `adapters/README.md` 索引表加一行。
-8. 跑构建，确认 `extension/site-adapters.json` 已更新且未被手工修改。
+8. 跑 `build/gen-site-adapters.ps1`（§4.1），确认 `extension/site-adapters.json` 已更新且未被手工修改。
 
 **禁止**：为了让某个站点通过，去改公共发现代码的分支。那些分支属于所有站点。
 
@@ -383,6 +403,6 @@ adapters/
 | # | 项 | 何时确认 |
 | --- | --- | --- |
 | SA1 | 首批适配器清单（除抖音、视频号外还移植哪些） | 阶段 3 |
-| SA2 | `site-adapters.json` 由哪个构建步骤生成 | 阶段 2 |
+| ~~SA2~~ | ~~`site-adapters.json` 由哪个构建步骤生成~~ **已定**：**新增独立脚本** `build/gen-site-adapters.ps1`（生成与 `-Check` 校验两用），**不并入** `build/check-go.ps1`、也不挂到 `wails build`；生成时机（改 `adapters/` 后、打包扩展前、提交门禁第 6 项）与「**阶段 2 不需要**、随阶段 3 的适配器体系首次落地」见 §4.1 | 已解决 |
 | ~~SA3~~ | ~~适配器 `version` 与产品版本是否需要绑定~~ **已定：不绑定**。适配器必须能独立于产品版本更新——站点改版不会等我们的发版节奏（见 [13 §8](13-ROADMAP.md) 的 `R10`）。`version` 只表示该适配器自身声明的修订号 | 已解决 |
 | SA4 | 诊断页的适配器状态：`updatedFor` 为 `null` 显示「尚未核对」，距今过久显示「可能过期」 | 阶段 7 |

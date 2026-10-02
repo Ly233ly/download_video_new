@@ -148,6 +148,7 @@ Windows 本机媒体下载与归档工具。**无登录、无账号、无配对�
 | --- | --- |
 | [`docs/baseline.md`](docs/baseline.md) | **旧版** 1.6.3 冻结版的冷启动与空闲常驻实测；未测项如实标注 |
 | [`docs/phase1-report.md`](docs/phase1-report.md) | **新实现**阶段 1 的门禁实测（`T-STB-02` / `PF-A4` / `PF-A3` / `T-STB-05`）与逐项判定 |
+| [`docs/phase2-report.md`](docs/phase2-report.md) | **新实现**阶段 2（第一条完整链路）的门禁逐项判定：**5/11 通过**，6 项待扩展侧测试资产迁入；另含本阶段查实的 5 条平台事实 |
 
 架构决策记录见 [`docs/adr/`](docs/adr/)。
 

@@ -130,9 +130,17 @@ internal/* → internal/platform
 
 关键操作记录耗时，默认阈值 **50 ms**，超阈值记一条结构化事件。
 
-### 4.5 轮转
+### 4.5 轮转与保留量
 
-按大小轮转，保留上限默认 **10 MB × 5 个文件**，避免无限增长。
+**本节是日志保留量的唯一定义处**（§10 `Z4` 只引用，不重复）：
+
+| 项 | 值 | 说明 |
+| --- | --- | --- |
+| 单个文件上限 | **10 MB** | 达到即轮转；**只按大小触发** |
+| 保留的轮转文件数 | **5** | 当前活动文件**之外**最多 5 个历史文件，故磁盘占用上限约 **60 MB** |
+| 按天 / 按龄清理 | **不设** | 不额外按天数清理——有界性由大小轮转保证，不再引入一条会随时间漂移的规则 |
+
+落点：`internal/logging/logging.go` 的 `maxSizeMB = 10` / `maxBackups = 5`，且**不设** `MaxAge`（即不按龄删除）；日志目录见 [01 §8](01-ARCHITECTURE.md) 的 `logs\`。
 
 ---
 
@@ -199,7 +207,7 @@ internal/* → internal/platform
 
 | 生成物 | 来源 | 说明 |
 | --- | --- | --- |
-| `extension/site-adapters.json` | `adapters/` | 扩展所需的适配器字段副本（[14 §4](14-SITE-ADAPTERS.md)） |
+| `extension/site-adapters.json` | `adapters/` | 扩展所需的适配器字段副本（[14 §4](14-SITE-ADAPTERS.md)）；**生成步骤与时机**见 [14 §4.1](14-SITE-ADAPTERS.md) |
 
 生成物**必须**带 `"generated": true` 与来源标记，便于识别误改。
 
@@ -226,8 +234,9 @@ internal/* → internal/platform
 | 项 | 规定 |
 | --- | --- |
 | 当前版本 | `2.0.0` |
-| 版本位置 | Go 常量、前端清单、两份扩展清单、安装器资源、构建脚本 |
-| 一致性 | 提交前自动校验全部位置一致（T-BRAND-03） |
+| 版本位置 | Go 常量（`internal/app/version.go` 的 `Version`）、前端清单（`frontend/package.json`）、扩展清单（`extension/manifest.json`——**第一版只有 Chromium 一份**，见 [07 §10](07-EXTENSION.md) 的 `E3`）、Wails 项目配置（`wails.json` 的 `info.productVersion`） |
+| 安装器资源 | **不是独立版本源**：`project.nsi` 里的 `INFO_PRODUCTVERSION` 是被注释掉的默认值（该文件头部已说明模板替换在这里不生效），实际由 `wails_tools.nsh` 从 ProjectInfo 注入——也就是源自 `wails.json` |
+| 一致性 | 提交前用 [`tools/Check-BrandVersion.ps1`](../tools/Check-BrandVersion.ps1) 机械校验上述**四处**一致（门禁 `T-BRAND-03`）。脚本只读，退出码 `0`/`1`/`2`（`2` = 有源读不到，**不得视为通过**） |
 
 ### 8.2 依赖
 
@@ -272,4 +281,4 @@ FFmpeg、FFprobe、yt-dlp、Deno 固定版本并记录校验和（[10 §5.4](10-
 | ~~Z1~~ | ~~静态分析与格式化的具体工具链~~ **已定**：格式化 `gofmt`（标准库、无配置）；静态检查 `go vet` + **`golangci-lint`**（启用 `errcheck` / `govet` / `ineffassign` / `staticcheck` / `unused`）。落点 `build/check-go.ps1`，由 §6.2 门禁第 1 项调用。**不引入** `gosec`（本项目的对手是自己出的 bug，见 [ADR-003](adr/ADR-003-simplified-security.md)），也不用全量 linter 集（噪声大） | 已解决 |
 | ~~Z2~~ | ~~前端类型检查与测试框架~~ **已定**：类型检查 `tsc --noEmit`（`strict`）；lint 用 ESLint（`typescript-eslint` + `eslint-plugin-react-hooks` 的 `recommended-latest`，[16 §5.1 C3](16-FRONTEND.md) 要求）；格式化 Prettier（含 `prettier-plugin-tailwindcss`）；测试 **Vitest** + `@testing-library/react` + `jsdom`。落点 `frontend/package.json` 的 `check` / `test` 脚本，由 §6.2 门禁第 4 项调用 | 已解决 |
 | Z3 | **契约编号引用有效性**的校验脚本：扫描 `docs/` 中出现的 `B-xxx` / `P-1xx` / `A-1xx` 与源码中的 `// B-xxx` 标注，报告指向不存在编号的引用、以及 02/07/14 中定义但从未被 11 覆盖的编号。**它只查引用有效性，不要求每条契约都被标注**（与 §2 的契约标注规则一致） | **主体已落地**：`tools/Check-ContractCoverage.ps1` 已覆盖"定义 → 11 覆盖"与 `B-101/102` 式分组展开（`RESULT: OK`：B 120 · P 10 · A 17）。**阶段 1 收尾两项**：① `docs/` 中出现的编号必须存在于对应定义文档（反向检查）；② [11 §2](11-ACCEPTANCE.md) 每行必须带「类型」列——缺口实例：`T-UI-08` 曾缺列，使 117 项里只有 116 项带类型（`98+17+1≠117`）。源码 `// B-xxx` 扫描待源码出现后启用 | 部分已解决（阶段 1 收尾） |
-| Z4 | 日志保留量的最终值 | 阶段 2 |
+| ~~Z4~~ | ~~日志保留量的最终值~~ **已定**：单个文件 **10 MB**、保留 **5 个**轮转文件（总量上限约 **60 MB**）、**不额外按天清理**。**定义在 §4.5**，本行只引用、不重复第二份。依据：① 这三个值 12 §4.5 早已写入（"10 MB × 5 个文件"），本次只是把它从"默认"确认为**最终值**，取值不变；② 实现现状 `log/slog` + `lumberjack`（[`internal/logging/logging.go`](../internal/logging/logging.go) 的 `maxSizeMB = 10` / `maxBackups = 5` / 未设 `MaxAge`）与之一致，**不需要改实现**；③ 不按天清理的理由：§4.5 规定的是按**大小**轮转，全篇没有按时间的日志规则，而 [03 §2.4](03-DATA.md) 的 `cache_retention_days` 作用域是**缓存目录**（`临时`/`预览` 的归属见 [05 §11](05-DOWNLOAD.md)），不覆盖 [01 §8](01-ARCHITECTURE.md) 的 `logs\`；④ 6 个文件的硬上界已经满足"避免无限增长"，再叠加按天清理只会让排错可用的历史长度不确定 | 已解决 |

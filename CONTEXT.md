@@ -20,7 +20,7 @@
 | **远程仓库** | <https://github.com/Ly233ly/download_video_new>（`origin`，分支 `main`） |
 | **旧项目** | `E:\Users\MSI\Desktop\codex_download`（**只读，永不修改**） |
 | **开发方式** | 全 AI 开发，**文档是权威**，实现服从文档 |
-| **当前状态** | **阶段 1 的 7 个交付物（`D1`~`D7`）全部跑通**，界面已按 `design/mockup.html` 对齐。门禁：`T-STB-02` ✅ · `PF-A4` ⚠️ p50 通过（576 ms，余量约 2 倍）、**p95 待无负载复测** · `PF-A3`/`T-STB-05` ⏳ 60 秒试点通过、**正式 10 分钟未测**。逐项见 [`docs/phase1-report.md`](docs/phase1-report.md)。Go 42 测试 + 前端 9 测试 |
+| **当前状态** | **阶段 2（第一条完整链路）已交付，门禁 5/11 通过**——逐项证据见 [`docs/phase2-report.md`](docs/phase2-report.md)。**Go 侧与前端完成**：`go build`/`go vet` 干净、8 个包测试全绿；前端 `check` exit 0、**79 个测试通过**。已过：`T-BRAND-03` · `T-STB-01` · `T-FS-01` · `T-DL-01` · `T-DL-10`。**未验证的 6 项全在扩展侧**（`T-EXT-10`、`T-EXT-15~19`）：源码已迁入并重写（21 文件，JS 语法与 manifest 解析均通过），但 `07 §8` 要求的测试资产**尚未迁入** `extension/tests/`。**阶段 1 门禁遗留不变**：`PF-A4` ⚠️ p50 通过、**p95 待无负载复测** · `PF-A3`/`T-STB-05` ⏳ 试点通过、**正式 10 分钟未测**（**已按用户要求暂缓**） |
 
 ---
 
@@ -60,6 +60,10 @@
 
 | 阶段 1 代码入库 + 收尾清理（2026-10-02） | 阶段 1 全部代码此前**只在工作区、未入库**（本表的「代码」行还写着"零行"）。已按两个逻辑提交推到远端：`103363f` 规范同步 · `37a3a37` 骨架实现（71 文件 +10680 行）。**三处缺口一并清掉**：① 本表「代码」行改为实测值；② [12 §10 `Z1`](docs/12-CONVENTIONS.md) 声明的落点 [`build/check-go.ps1`](build/check-go.ps1) 已落地——gofmt 范围用 `git ls-files '*.go'`、`go vet` 用同源反推的包目录、`golangci-lint` 未装时显式 SKIP 并以退出码 2 表示「门禁未完整执行」（**不谎报通过**）；③ 裸 `go vet ./...` 会下探 `frontend/node_modules` 里的第三方 Go 源码（实测 `flatted/golang/pkg/flatted`），而**嵌套 `go.mod` 隔离会打断 `//go:embed`**（实测 `cannot embed directory frontend/dist: in different module`）→ 改为显式给出包范围，教训记入 [12 §1.1](docs/12-CONVENTIONS.md) |
 
+| 阶段 2 规范回填完成（2026-10-02） | [13 §7.2](docs/13-ROADMAP.md) 的 **9 项待确认项全部关闭**——这是"先出文档再开发"（用户需求第 14 条）要求的那道门。`04` 新增 §2.3.1 通用约定（成功外壳即 §3.1 的 `Result<T>`、状态码表、本机 API 层自有错误码 7 个）、§2.3.2 阶段 2 九个端点的逐条 schema、§3.3 视图与请求类型（`PlanView` 24 字段 + `canRetry`/`canStop`/`canOpen`/`canImport` 的**机械判据**）；`03` 新增 §2.1.1 —— `stream_plan` 被定义为 `CreatePlanRequest.streams[]` 的**可持久化投影**，只留 `track`/`kind`/`quality`/`container`，**媒体地址与字节数一律丢弃**（B-722）。媒体地址只在内存、重启转 `failed`+`context_expired` 的理由已写明：它**不与 [05 §9](docs/05-DOWNLOAD.md) 的"直链可重建→继续调度"冲突**——那行要求**能证明**可重建，一次性签名直链拿不到这个证明，故按"无法判断→保守 failed"处理。另：`07 E7` 定为固定 **3000 ms**、`14 SA2` 定为独立脚本 `build/gen-site-adapters.ps1`（**阶段 2 不需要**，随阶段 3 适配器体系落地）、`12 Z4` 确认 10 MB×5 与实现一致（**无需改代码**，只把"默认"确认为最终值）。校验：`Check-ContractCoverage.ps1` → `RESULT: OK` |
+
+| 阶段 2 实现落地（2026-10-02） | D1~D6 全部有落点：`internal/api`（回环 API + Origin 白名单 + `S4` 端口发现）· `internal/media`（P1 直链：Range 续传、200/206/416、FFprobe 校验、原子交付——**原 `internal/download` 已按 [01 §3](docs/01-ARCHITECTURE.md) 合并进来**）· `internal/service`（计划业务 + 调度 + [04 §4.2](docs/04-INTERFACES.md) 的 200 ms 完整视图推送）· `internal/store/plans.go`（**机械保证**而非约定：`total_bytes` 三态用 `*int64`、`completed` 与 `final_path` 同事务**并有触发器注入的回归测试**、调度查询强制 `INDEXED BY idx_plans_due`）· `internal/ui`（绑定方法 + 事件出口）· `frontend/src`（下载页实时列表）。**门禁 5/11 通过**，未过的 6 项全在扩展侧（测试资产未迁入）。逐项证据与 5 条顺带查实的事实（`systray` 无通知 API · Windows `EADDRINUSE` 数值与 Go 常量不符 · `net/http` 重定向忽略端口 · `project.nsi` 非独立版本源 · 测试曾污染用户目录）见 [`docs/phase2-report.md`](docs/phase2-report.md) |
+
 ---
 
 ## 3. 下一步做什么
@@ -68,10 +72,10 @@
 
 | 优先 | 事项 | 为什么是这个位置 |
 | --- | --- | --- |
-| **1** | **补完阶段 1 门禁（等机器空闲）→ 进入阶段 2** | 只剩两项，**必须在机器空闲、无人玩游戏时跑**：`PF-A4` 冷启动（**n ≥ 20**——n=10 时 p95 就等于 max，一个样本即可决定判定）· `PF-A3`/`T-STB-05` 的 10 分钟稳定段（内存按**私有工作集**、句柄分自有/WebView2 两类）。结果补进 [`docs/phase1-report.md`](docs/phase1-report.md)。`V4` 杀软验证留到阶段 7 有安装器再验。⚠️ **用户已明确要求不做长时测试——跑之前先征得同意，并且不要一次性阻塞等待，要分段唤醒检查** |
-| **2** | 阶段 0.5 剩余项 | 见下方待办 A：`B-3`~`B-8` 六项未测 + 空闲采样时长不足。**不阻塞阶段 1**（它测的是旧版，只要旧项目不变就不过期） |
-| **3** | 阶段 2 第一条链路 | 浏览器点一下 → 文件真的落到磁盘 |
-| **4** | 阶段 2.5 浏览器下载模式 | 解决用户最初提的 YouTube 链接问题 |
+| **1** | **扩展收尾：迁入测试资产 → 过 `T-EXT-10`/`T-EXT-15~19`** | 阶段 2 只剩这 6 项门禁。要做：把旧项目那 7 个 JS 测试迁入 `extension/tests/` 并适配（`test_auth_race.js` 按 [07 §7](docs/07-EXTENSION.md) 改写为"连接可达性竞态"）· **新增 `P-101/P-102` 自动化检查**（状态更新后断言列表容器未被整体重建——[07 §8](docs/07-EXTENSION.md) 明文说这是"防止卡顿回归的唯一可执行手段"）· 人工项 `M1`（浏览器扩展管理页加载）。⚠️ **不做长测试**——确需长测试必须**分段唤醒**逐段检查，或**先跑几秒短测再上长测** |
+| **2** | 阶段 1 门禁遗留（**已按用户要求暂缓**） | `PF-A4` 冷启动 **n ≥ 20**（n=10 时 p95 就等于 max，一个样本即可决定判定）· `PF-A3`/`T-STB-05` 的 10 分钟稳定段（内存按**私有工作集**、句柄分自有/WebView2 两类）。结果补进 [`docs/phase1-report.md`](docs/phase1-report.md)；跑之前先征得同意。`V4` 杀软验证留到阶段 7 有安装器再验 |
+| **3** | 阶段 0.5 剩余项 | 见下方待办 A：`B-3`~`B-8` 六项未测 + 空闲采样时长不足。**不阻塞阶段 1**（它测的是旧版，只要旧项目不变就不过期） |
+| **4** | 阶段 2.5 浏览器下载模式 | 解决用户最初提的 YouTube 链接问题（`04 I6`、`07 E8` 等协议项仍未解决） |
 | **5** | 装 `golangci-lint` 并实测 [`.golangci.yml`](.golangci.yml) | [12 §10 `Z1`](docs/12-CONVENTIONS.md) 已定工具链、[`build/check-go.ps1`](build/check-go.ps1) 已落地，但本机没装 → 门禁第 1 项目前是 `INCOMPLETE`。一条命令：`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`；装完要核对配置语法（脚本按 **v2** 写：`version: "2"` + `default: none`） |
 
 阶段划分、每阶段门禁、待确认项总清单都在 [`docs/13-ROADMAP.md`](docs/13-ROADMAP.md)。
