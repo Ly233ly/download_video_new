@@ -20,6 +20,25 @@
 
 **扩展 ID 必须稳定**：manifest 中固定 `key` 字段，使 ID 在开发者模式与打包后保持一致。桌面端以编译常量内置该 ID 作为 Origin 白名单（见 [01 §2.1](01-ARCHITECTURE.md)）。这是"装完即用、无需配对"的技术前提。
 
+### 1.1 固定身份（`E1` 已定 · 2026-10-02）
+
+| 项 | 值 |
+| --- | --- |
+| 扩展 ID | `cfefnmhhollflbhgbdmphgnpeaeipfil` |
+| 桌面端白名单 Origin | `chrome-extension://cfefnmhhollflbhgbdmphgnpeaeipfil` |
+| `manifest.json` 的 `key` | 见下方代码块（公钥，非秘密） |
+| 私钥存档 | `build/secrets/extension-key.pem`（RSA-2048 / PKCS#8，**已 gitignore，永不入库**） |
+
+```text
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2KfHArZr5gmCNknE98sDpRBmOscV5ObEsBF9OWVHp1SRhDWsKu9SXtoPJM56Bn7Iv4JbimOma92PIh4sT32oZ98XCI7QIp+HovG0gipirJC4ZZ7DtiNH2EAKlMeIhUcdLEMnyDn8XKNeofpP60PtPPSLI7+bzidAQ2xY7SG5W3B9PhPZezfXW5ZzuJAmpz5V2df9R/Q/bpVxXEPYYfXkmitMJLtK46R+ToAIv4lO6OaiXZs5zsHF0YISw8qUJb9Kj3y8wGstp62USc2r9zNDaUC9gfaWpZ3erozhsT0XFekqTkAl64MhlgAo0lubA8OUpucVO1uB8/sAaL3TJ/jj5wIDAQAB
+```
+
+**ID 的由来**：`SHA-256(公钥 SPKI DER)` 取**前 16 字节**，每个半字节映射到 `a`~`p`（Chrome 官方机制，无需任何工具即可复算）。**换 `key` 就换 ID**——因此 `docs` 里这个值、`extension/manifest.json` 的 `key`、Go 侧白名单常量是**同一事实的三处落点**，改一处必须同步另两处。
+
+> **为什么不由旧版继承**：旧版 `chrome-extension/manifest.json` **没有 `key` 字段**（已核对），开发者模式下的 ID 随路径变化，不存在需要保留的历史 ID。
+
+**私钥的用途与保管**：仅用于打包 `.crx` 或发布到商店。当前发行方式是"用户手动加载已解压的扩展"（[10 §1](10-DISTRIBUTION.md)），**不需要私钥**；但一旦丢失就无法再产出同一 ID 的签名包，故必须保管。
+
 **理由**：扩展不受旧实现的三个性能根因影响，且它的复杂度集中在**时序与竞态**——这类逻辑重写极易重新引入已修复的缺陷。19 条契约与 7 个测试文件是已投入的资产。
 
 ---
@@ -28,7 +47,8 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `manifest.json` / `manifest.firefox.json` | 清单 |
+| `manifest.json` | 清单（**第一版唯一的清单**；固定 `key` 见 §1.1） |
+| `manifest.firefox.json` | Firefox 清单——**第一版不提供**，仅为将来支持预留位置（§10 `E3`） |
 | `js/background.js` | Service Worker：导航边界、代次、发现、任务轮询 |
 | `js/content-script.js` | 页面内发现与上报 |
 | `js/eagle-bridge-candidate-logic.js` | 候选组归组与选择 |
@@ -240,9 +260,9 @@ Worker 可能在设置与媒体快照尚未恢复时先收到导航事件。此�
 
 | # | 项 | 何时确认 |
 | --- | --- | --- |
-| E1 | 扩展固定 Origin（用于桌面端白名单） | 阶段 1 |
-| E2 | 清单权限是否可精简（当前含 `*://*/*`） | 阶段 1 |
-| E3 | 是否必须支持 Firefox | 阶段 1 |
+| ~~E1~~ | ~~扩展固定 Origin（用于桌面端白名单）~~ **已定**：ID `cfefnmhhollflbhgbdmphgnpeaeipfil`、`manifest.key` 与生成方式见 §1.1 | 已解决 |
+| ~~E2~~ | ~~清单权限是否可精简（当前含 `*://*/*`）~~ **已定**：`host_permissions` 删除冗余的 `*://*/*`（`<all_urls>` 已完全包含它），只留 `<all_urls>`；`permissions` 七项（`tabs` / `webRequest` / `storage` / `webNavigation` / `alarms` / `scripting` / `sidePanel`）逐项有用途，**不裁剪**——进一步收缩会改变 §1 冻结的用户可见行为。**同时修正** `minimum_chrome_version`：`93` → **`114`**（`sidePanel` 权限与 `side_panel` 清单字段自 Chrome 114 起可用，写 93 会让侧边栏形态在旧版上静默不可用；阶段 2 由人工项 `M1` 复核） | 已解决 |
+| ~~E3~~ | ~~是否必须支持 Firefox~~ **已定（2026-10-02 用户裁决）**：**第一版只支持 Chromium 系（Chrome / Edge）**。`extension/` 目录**结构上预留第二个清单的位置**（`manifest.firefox.json`、`js/polyfill.js` 等需要时补入），但**不实现、不测试、不随发行包提供**。这与旧版能力有差距——旧版真实维护过 Firefox（`polyfill` + 独立 `background.scripts` 集合 + `gecko.id`），属**功能回退**，发行说明须**如实标注**；将来若要做，按 [12 §7](12-CONVENTIONS.md) 走 ADR | 已解决 |
 | E4 | ~~任务列表由推送还是低频轮询驱动~~ **已定**：仅任务状态、≥ 2 秒、弹窗关闭即停的轻量轮询（P-108） | 已解决 |
 | E5 | 弹窗是否随新版桌面端统一视觉 | 阶段 6 |
 | ~~E6~~ | ~~虚拟滚动的行高策略~~ **已定**：固定行高 56px（见 P-105）——测量式算不出稳定起始索引，且会引入滚动抖动 | 已解决 |

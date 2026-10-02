@@ -20,7 +20,7 @@
 | **远程仓库** | <https://github.com/Ly233ly/download_video_new>（`origin`，分支 `main`） |
 | **旧项目** | `E:\Users\MSI\Desktop\codex_download`（**只读，永不修改**） |
 | **开发方式** | 全 AI 开发，**文档是权威**，实现服从文档 |
-| **当前状态** | **规范与设计稿已定稿，仍是零代码** |
+| **当前状态** | **阶段 1 的 7 个交付物（`D1`~`D7`）全部跑通**，界面已按 `design/mockup.html` 对齐。门禁：`T-STB-02` ✅ · `PF-A4` ⚠️ p50 通过（576 ms，余量约 2 倍）、**p95 待无负载复测** · `PF-A3`/`T-STB-05` ⏳ 60 秒试点通过、**正式 10 分钟未测**。逐项见 [`docs/phase1-report.md`](docs/phase1-report.md)。Go 42 测试 + 前端 9 测试 |
 
 ---
 
@@ -42,12 +42,21 @@
 | 规范定稿与审阅 | 四轮审阅（详细度 / 冗余 / 矛盾）修掉 5 个真矛盾：M 编号错位、「标题栏」两义、读取方表述、R5/R7/R8 编号错、自检脚本描述不实；删 5 处结构性 + 4 处单行重复（**把约束救成了硬性禁止项**）；补 10 项已确认数值（超时/端口/重试/节流/滚动参数/hook 时限等）+ IP 拒绝集合、`error_code` 取值域、P6 取消下行等缺口 |
 | 上游考古与边界 | 新建 [15 号文档](docs/15-UPSTREAM.md)：还原 cat-catch、两个视频号项目、3 项外部资料、8 个前端库；按源码核对 yt-dlp **已支持抖音**（`DouyinIE`）等 934 个站点、**不支持视频号**，据此划清适配器分工；只读研究 `ltaoo/wx_channels_download`，**原画教训**固化成 [06 §6.6](docs/06-WECHAT.md) 三条硬要求 |
 | git 建仓 | 此前**完全没有版本控制**（规范无历史可回滚）；现已建本地仓 |
-| 验收阈值补完 | `PF-A1~A7`、`ST-2/6/7`、`T-UI-01/06` 全部改成可机械执行的判据（三分类：硬数值 / 相对判据 / 流程判据）；§2 **十一张回归表全部补齐"类型"列**（117 项：A 98 · A+M 17 · M 1）。`ST-2` 直接引用 [01 §5.3](docs/01-ARCHITECTURE.md) 的代理恢复 3 s、`ST-6` 引用 [03 §5](docs/03-DATA.md) 的 `busy_timeout` 5000 ms——**不新定数值，只把既有定义接上**。提交 `9aa2fdb` |
+| 验收阈值补完 | `PF-A1~A7`、`ST-2/6/7`、`T-UI-01/06` 全部改成可机械执行的判据（三分类：硬数值 / 相对判据 / 流程判据）；§2 **十一张回归表全部补齐"类型"列**（117 项：A 99 · A+M 17 · M 1）。`ST-2` 直接引用 [01 §5.3](docs/01-ARCHITECTURE.md) 的代理恢复 3 s、`ST-6` 引用 [03 §5](docs/03-DATA.md) 的 `busy_timeout` 5000 ms——**不新定数值，只把既有定义接上**。提交 `9aa2fdb` |
 | 阶段编号统一 | `11 §6` 补 0.5/2.5 两行、末行改"8（发布验证）"；`T-EXT-26` 从阶段 2 移到 2.5（[13](docs/13-ROADMAP.md) 侧原本两处互相矛盾）；阶段 3 统一 `T-ADP-*`；[13 §2](docs/13-ROADMAP.md) 补阶段 8 定义；[13 §10](docs/13-ROADMAP.md) 的 `D-3` 不再用"有明确改善" |
 | 工具链就位 | Go 1.27.1 + Wails CLI v2.16.0 装好；**实建了一个一次性项目验证可构建**（`wails init -t vanilla` 1.7 s、`wails build` 9.3 s 产出 11.9 MB exe），证明**无需 C 编译器**；`wails doctor` 报 SUCCESS（见 §3.4） |
 | 许可证路线已定 | **继续复用 cat-catch 扩展**（组合发行按 GPL-3.0 并提供对应源码）；依据：用户明确**本软件不出售**，Commons Clause 类附加条款不构成约束。**若将来改为公开分发，GPL-3.0 的提供源码义务仍然成立** |
 | 阶段 0.5 已部分完成 | 建立 [`docs/baseline.md`](docs/baseline.md)：实测官方 1.6.3 冻结版的冷启动（p50 1136.3 ms）与空闲常驻（CPU 0.06 % / 64 MB / 444 句柄）；`B-3`~`B-8` 六项如实标"未测"。测量口径写在该文档 §4（脚本已按要求删除） |
 | 前端框架定案 | 新增 [16 号文档](docs/16-FRONTEND.md)：**React 19 + React Compiler + `@tanstack/react-virtual`**；把 `P-101`~`P-110` 翻译成桌面端 React 约束（`P-101`/`P-102` 是扩展侧契约，不会自动成立）；原 [13 V7](docs/13-ROADMAP.md) 的 Svelte/React 对比实测**取消**。提交 `f55513c` |
+| 验收矩阵自洽修复（2026-10-02） | `T-UI-08` 补"类型"列——修复前 117 项里仅 116 项带类型（`98 + 17 + 1 ≠ 117`，与本表"117 项"自相矛盾）；[13 §5](docs/13-ROADMAP.md) 阶段 2 门禁补 `T-BRAND-03`，与 [11 §6](docs/11-ACCEPTANCE.md) 的权威清单对齐。修复后复跑 `tools/Check-ContractCoverage.ps1`：`RESULT: OK`（B 120 · P 10 · A 17） |
+| 阶段 1 待确认项全部关闭（2026-10-02） | [13 §7.1](docs/13-ROADMAP.md) 的 16 项逐条落定：**扩展固定身份**（ID `cfefnmhhollflbhgbdmphgnpeaeipfil`、`manifest.key`、私钥存档 `build/secrets/`——权威见 [07 §1.1](docs/07-EXTENSION.md)）· 默认输出目录 · 端口发现 · 清单权限（并修正 `minimum_chrome_version` 93 → 114）· **Firefox 裁决**（第一版只支持 Chromium，结构预留）· 安装目录与注册表键 · Go 工具链（gofmt + vet + golangci-lint）· 前端工具链（tsc + ESLint + Prettier + Vitest）· zustand / 不引入路由库 / 不引入 headless 库 · `Y1`/`Y2` 对照基准与规模。`tools/Check-ContractCoverage.ps1` 扩充为**三项检查**（契约覆盖 + 类型列完整 + 反向引用有效），`RESULT: OK`。`10 V5`（签名与杀软）方案与判据已定、结论待阶段 1 实测 |
+| 阶段 1 骨架起步（2026-10-02） | **`D1` + `D3` 已跑通**：Wails 应用可启动（主窗口句柄非 0、工作集 30 MB）· **单实例 `T-STB-02` 通过**（第二个实例 1.1 s 内以退出码 0 退出并唤醒首个实例，首个仍存活）· 托盘用 `fyne.io/systray`（**无 CGO**，已实测）· SQLite 从零建库（5 张表 + WAL + `busy_timeout` + 每连接外键，**5 个结构测试全过**）。过程中踩掉三个坑：① **Wails 主包必须在仓库根**——实测放 `cmd/` 下报 `no Go files`，且 `//go:embed` 不允许 `..`（已改 [01 §3](docs/01-ARCHITECTURE.md) 与 [12 §1.1](docs/12-CONVENTIONS.md)）；② **`wails build` 的 bindings 阶段会真的执行 `main()`**——会占用单实例互斥体，导致"程序开着就无法重新构建"，已用 `-tags bindings` 分支修掉（`bindings_mode_*.go`）；③ **User 级 `GOPROXY` 指向不可达的官方源**（见 §3.4） |
+| 阶段 1 · D5 + D6（2026-10-02） | **D5 结构化日志**：`log/slog` + `lumberjack`（10 MB × 5 轮转）、固定字段 `component`/`event`、Debug 默认关闭、**敏感键名兜底脱敏**（cookie/authorization/decode_key/token/secret…）、`logging.Slow` 记录 >50 ms 操作——**6 个测试**。**D6 代理恢复**：启动第 2 步（**排在数据库之前**）、凭据文件 `proxy-restore.json`（original 与 applied 双份）、四种结果 `no_file`/`restored`/`skipped`/`failed`、3 s 预算、**失败保留凭据**（P2）、**无凭据绝不动代理**（P4）、退出时同样执行（P5）、**容忍 UTF-8 BOM**（实测 PowerShell 的 `Set-Content -Encoding UTF8` 会写 BOM，不容忍会把"文件可读"误判成"文件损坏"而永久保留）——**7 个测试** + 1 个显式开启的注册表读写回环验证。端到端实测：`no_file`（代理未动）与 `restored`（凭据被删）均符合预期；回环验证证明**读写逐值忠实** |
+| 阶段 1 · D7 + D4（2026-10-02） | **D7 媒体工具**：复用旧项目 `media-tools/`（ffmpeg + ffprobe **8.1.2** / yt-dlp **2026.06.09** / Deno **2.8.1**；exe 受 `*.exe` 规则排除、不入库）；`internal/media` 解析四个工具并读 `*-VERSION.json`（容忍 BOM），缺失**报出来但不阻塞启动**（不静默降级）；`LIUDI_TOOLS_DIR` 供开发时指定，**刻意不向上级目录搜索**——那会在缺失时悄悄用上别处的副本。端到端：不设变量时 `WARN tools_incomplete` 并进入启动警告，设变量时 `INFO tools_ready`——**5 个测试**。**D4 Service 层骨架**：`internal/service` 是 Wails 绑定与 HTTP handler 的**唯一**业务入口（[04 §1.2]），依赖注入 + 装配校验；落地 `store` 的 settings 读写（`value` 一律 JSON、非法值拒绝）与 [03 §2.4] 的两条回退规则（键不存在 / 解码失败都回退默认值且**不中断**）——**6 + 6 个测试** |
+| 阶段 1 · D2 基础 UI（2026-10-02） | 前端落到规范栈：**React 19 + Vite 8 + Tailwind v4 + zustand + `@tanstack/react-virtual` + lucide**，并接入 **React Compiler**（构建产物含 `useMemoCache` 与 `_c(` 调用——[16 §5.2](docs/16-FRONTEND.md) 的手段 2 实测通过）。实现 [09 §2](docs/09-UI.md) 的信息架构：侧边栏（固定五项 + 诊断前分隔）· **主题切换在侧边栏底部**（[09 §2.2](docs/09-UI.md)）· 应用顶栏（Eagle 状态**如实显示"未检测"**，不假装可用，B-809）· 下载任务空列表页。设计 token 按 [09 §4.4/§4.6](docs/09-UI.md) 逐条落进 `theme/tokens.css`，**CSS 变量与 Tailwind 主题共用同一生成物**（[16 §4.7](docs/16-FRONTEND.md)）。主题走 **B-803 的首帧注入**：Go 侧中间件把 `settings.theme` 写进 index.html，同步内联脚本在 React 挂载前设好 `data-theme`；持久化失败**回滚界面**，不让界面与权威值不一致（B-804）。`bindings/` 是唯一调用 Wails 的地方（[16 §3.1](docs/16-FRONTEND.md)），返回 `Result` 而非静默吞错。**删除模板的第三方字体**（[09 §4.5](docs/09-UI.md) 禁止打包字体）。测试：Go 42 + 前端 8；`npm run check`（tsc + eslint 含 `react-hooks/recommended-latest` + prettier）exit 0。**过程中被测试抓到一个真 bug**：`dataset['data-theme']` 实际写的是 `data-data-theme`（dataset 的键不含 `data-` 前缀），已改用 `setAttribute` |
+| 界面按设计稿修正 + 规范补缺口（2026-10-02） | 用户指出界面未按 `design/mockup.html` 做——**根因是我的判断链漏了一层**：README 用户需求第 4 条的落点写的就是 `09 · design/mockup.html`，而我读了 09 §2/§4、并把 `design/_check.mjs` 打印的 25 个 token 当成了设计稿的全部，**漏掉它同时是「布局层」的权威**。已按设计稿改 8 处：品牌从侧栏移到**应用顶栏**（logo · 品牌 · 版本号 · 状态 pill）· 侧栏只留导航（`gap` + `sep` 分组、`padding 14px 10px`）· 页面骨架加 `.sub` 副标题 · 状态 pill 文案 · 选中竖条 `left:-10px` 且右侧圆角 · 补齐 `border-strong`/`accent-ink`/`shadow`/`r-pill` 与深色阴影 · 版本号经 Vite `define` 从 package.json 注入（单一来源）。**规范同步补上缺口**：[09 §4.2](docs/09-UI.md) 现在明确「**两层权威**」——token 层在 09 §4，**布局层在 `design/mockup.html`**，并要求"实现任何页面前必须对照设计稿的对应 section"。刻意保留一处差异：主题切换仍在**侧边栏底部**（[09 §2.2](docs/09-UI.md) 的规定），设计稿把它放在演示控制条里（那是演示专用，不属于应用界面） |
+| 阶段 1 门禁实测记录（2026-10-02） | 新建 [`docs/phase1-report.md`](docs/phase1-report.md)（**新实现**侧数据，与旧版 [`baseline.md`](docs/baseline.md) 分开存放）。结论：**3 项通过、1 项待复测、2 项口径不足**——`T-STB-02` ✅ · `PF-A4` p50 576.2 ms（旧版 1136.3，约快 2 倍）✅ / p95 因**测量期间外部负载（用户玩游戏）**污染而未判 · `PF-A3` 试点：私有工作集 86.6–88.5 MB、自有句柄 409、CPU 0.047% ✅（**正式 10 分钟未测**）。未测项逐条显式标注 |
+| 阶段 1 门禁探针（2026-10-02） | 在正式工程外建 Wails 探针（`D:\tmp\liudi-probe`，**未入库**）实测：`PF-A4` 冷启动 **p50 456.5 ms / p95 553.3 ms**（阈值 1136.3 / 1363.6，余量 2.5 倍）· `V5` 管道 JSON-RPC **1000 次往返零错误**、子进程崩溃 **1 ms** 感知、父进程死亡 8–10 ms 子进程自退 · `V1` 体积 11.4 MB / 构建 7.6 s。**并暴露一处判据量纲错误**：工作集求和 330.1 MB vs 私有工作集求和 78.9 MB、句柄 3231（其中 2878 由 WebView2 引擎产生）→ 已修订 [11 §3](docs/11-ACCEPTANCE.md) 的"内存口径""句柄口径"与 `PF-A3`/`ST-7` 行，**阈值未放宽**；教训（"有基线≠可比"）记入 [baseline.md](docs/baseline.md) §3。`PF-A3` 正式 10 分钟测量与 `V4` 杀软验证待在骨架内执行 |
 
 ---
 
@@ -57,7 +66,7 @@
 
 | 优先 | 事项 | 为什么是这个位置 |
 | --- | --- | --- |
-| **1** | **阶段 1 骨架** | 窗口 + 建库 + 代理恢复 + 工具解析；前端按 [16](docs/16-FRONTEND.md) 落地，其 §7 的 `F1`~`F4`（测试框架 / 状态管理 / 路由 / 组件原语）属阶段 1 必须解决项。**环境已就绪、规范已定稿，这是唯一还挡在"写出第一行代码"前面的东西** |
+| **1** | **补完阶段 1 门禁（等机器空闲）→ 进入阶段 2** | 只剩两项，**必须在机器空闲、无人玩游戏时跑**：`PF-A4` 冷启动（**n ≥ 20**——n=10 时 p95 就等于 max，一个样本即可决定判定）· `PF-A3`/`T-STB-05` 的 10 分钟稳定段（内存按**私有工作集**、句柄分自有/WebView2 两类）。结果补进 [`docs/phase1-report.md`](docs/phase1-report.md)。`V4` 杀软验证留到阶段 7 有安装器再验。⚠️ **用户已明确要求不做长时测试——跑之前先征得同意，并且不要一次性阻塞等待，要分段唤醒检查** |
 | **2** | 阶段 0.5 剩余项 | 见下方待办 A：`B-3`~`B-8` 六项未测 + 空闲采样时长不足。**不阻塞阶段 1**（它测的是旧版，只要旧项目不变就不过期） |
 | **3** | 阶段 2 第一条链路 | 浏览器点一下 → 文件真的落到磁盘 |
 | **4** | 阶段 2.5 浏览器下载模式 | 解决用户最初提的 YouTube 链接问题 |
@@ -102,7 +111,7 @@
 | Go **1.27.1** 装在 `C:\Users\MSI\go-sdk\go`（官方 ZIP 解压，非 MSI）；`GOROOT` / `GOPATH`（`C:\Users\MSI\go`）/ 用户 `Path` 已持久化 | 新开的 shell 才生效；本次会话内需手动前置 `Path` |
 | Wails CLI **v2.16.0** 装在 `C:\Users\MSI\go\bin\wails.exe` | 随 `GOPATH` 走，不用单独装 |
 | **WebView2 Runtime 已装**（154.x，`EdgeWebView\Application`） | Wails 的运行时前置已满足，安装器不必承担部署 |
-| `GOPROXY` 已是 `https://goproxy.cn,direct` | Go 模块下载不必走代理；本次装 Wails CLI 用时 25 s |
+| **`GOPROXY` 实际是 `https://proxy.golang.org,direct`（User 级环境变量），该源在本机不可达**（实测 `dial tcp ...:443` 超时）——2026-10-02 复核发现 | `go env -w GOPROXY=https://goproxy.cn,direct` **会被 OS 环境变量压制**（报 `does not override conflicting OS environment variable`）。两条修法：① 构建脚本里显式 `$env:GOPROXY='https://goproxy.cn,direct'`；② 删掉 User 级 `GOPROXY`，让 `go env` 文件里的 `goproxy.cn` 生效。**换机器/重装后先验这一行** |
 | **Go 官方 MSI 无提权装不上**：报 `Error 1925`（写 `C:\Program Files` 被拒后回滚） | **不要重试 MSI**。用官方 ZIP 免管理员安装，并核对官方 SHA-256（本次已验证） |
 | **本机没有 `pwsh`（PowerShell 7）**，只有 Windows PowerShell 5.1 | 提权时**必须用 `powershell.exe`**，用 `pwsh` 会报"系统找不到指定的文件" |
 | **没有 C 编译器**（`gcc` / `clang` / `cl` 全无）——但**实测不影响构建**：`wails build` 在无 gcc 的情况下成功产出 `probe.exe`（11.9 MB，9.3 s）。v2.16.0 在 Windows 走纯 Go 的 WebView2Loader，**不要求 CGO** | **不要为 Wails 装 MinGW**。只有将来引入需要 CGO 的依赖（如 `mattn/go-sqlite3`）时才需要——[03 §2](docs/03-DATA.md) 选的是纯 Go 的 `modernc.org/sqlite`，所以按当前技术栈**不需要**。`wails doctor` 也不会检查编译器，别把它当缺口 |

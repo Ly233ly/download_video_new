@@ -133,34 +133,36 @@ adapters/
 
 ## 5. `adapter.json` 字段
 
+**下面的示例只示字段形状与注释，不构成任何站点的声明。** 站点声明的唯一事实源是 `adapters/<id>/adapter.json`（契约 A-104）：抖音的实际取值见 [`adapters/douyin/adapter.json`](../adapters/douyin/adapter.json)，其字段与旧实现的对应关系见 §10。
+
 ```jsonc
 {
-  "id": "douyin",                          // 必须与目录名一致
-  "name": "抖音",                          // 界面展示名
+  "id": "example",                         // 必须与目录名一致
+  "name": "示例站点",                      // 界面展示名
   "version": 1,                            // 本适配器版本，改动即递增
   "updatedFor": null,                      // 最后按真实页面核对的时间（YYYY-MM）；从未核对填 null
   "match": {
-    "hosts": ["douyin.com", "*.douyin.com"],
+    "hosts": ["example.com", "*.example.com"],
     "priority": 100                        // 越大越优先；generic 为 0
   },
   "identity": {
     "urlRules": [
-      { "path": "^/video/(\\d{10,30})/?$", "id": "$1" },
-      { "query": "modal_id", "pattern": "^\\d{10,30}$", "id": "$0" }
+      { "path": "^/video/(\\d+)/?$", "id": "$1" },          // 路径规则：捕获组即 ID
+      { "query": "vid", "pattern": "^\\d+$", "id": "$0" }   // 查询参数规则：整串即 ID
     ],
-    "domSignals": ["[data-aweme-id]", "[data-video-id]"],
-    "canonical": "https://www.douyin.com/video/{id}",
+    "domSignals": ["[data-video-id]"],
+    "canonical": "https://example.com/video/{id}",
     "requireId": true                      // 取不到 ID 时不上报候选
   },
   "capture": {
-    "containers": ["[data-e2e=\"feed-item\"]", "[data-e2e=\"feed-active-video\"]"],
+    "containers": ["video"],                // 候选所在的容器选择器，按站点实际填写
     "primarySelection": "current-player",   // current-player | first | all
     "allowDirectStream": true,              // 通用为 false
     "requireBlobSource": false              // 通用为 true
   },
   "title": {
     "template": "{nickname} - {description}",
-    "fallback": "抖音视频 {id}"
+    "fallback": "{站点名}视频 {id}"
   },
   "resolve": {
     "engine": "yt-dlp",
@@ -168,12 +170,10 @@ adapters/
     "canonicalizePageUrl": true
   },
   "errors": [
-    { "match": "Unsupported URL",  "code": "douyin_page_unsupported",
-      "message": "抖音内容页不是受支持的视频详情地址，请刷新当前视频后重试" },
-    { "match": "Fresh cookies",    "code": "douyin_session_expired",
-      "message": "抖音需要当前浏览器的新鲜会话，请刷新抖音页面后重试" }
+    { "match": "<上游错误片段>", "code": "<稳定机器码>",
+      "message": "<面向用户的可读提示>" }
   ],
-  "codeReason": null                       // L2 时必填
+  "codeReason": null                       // L1 留 null；L2 必填
 }
 ```
 
@@ -384,5 +384,5 @@ adapters/
 | --- | --- | --- |
 | SA1 | 首批适配器清单（除抖音、视频号外还移植哪些） | 阶段 3 |
 | SA2 | `site-adapters.json` 由哪个构建步骤生成 | 阶段 2 |
-| ~~SA3~~ | ~~适配器 `version` 与产品版本是否需要绑定~~ **已定：不绑定**。适配器必须能独立于产品版本更新——站点改版不会等我们的发版节奏（见 §8 `R10`）。`version` 只表示该适配器自身声明的修订号 | 已解决 |
+| ~~SA3~~ | ~~适配器 `version` 与产品版本是否需要绑定~~ **已定：不绑定**。适配器必须能独立于产品版本更新——站点改版不会等我们的发版节奏（见 [13 §8](13-ROADMAP.md) 的 `R10`）。`version` 只表示该适配器自身声明的修订号 | 已解决 |
 | SA4 | 诊断页的适配器状态：`updatedFor` 为 `null` 显示「尚未核对」，距今过久显示「可能过期」 | 阶段 7 |

@@ -209,10 +209,12 @@ GitHub Release
 
 | # | 项 | 何时确认 |
 | --- | --- | --- |
-| V1 | 目标安装目录的精确路径 | 阶段 1 |
-| V2 | 注册表键与值 | 阶段 1 |
+| ~~V1~~ | ~~目标安装目录的精确路径~~ **已定**：`%LOCALAPPDATA%\Programs\LiudiDownloader`。**必须与数据目录 `%LOCALAPPDATA%\LiudiDownloader\`（[01 §8](01-ARCHITECTURE.md)）分开**——否则"卸载保留数据"会误伤程序文件，数据目录里也会混入可执行文件。全 `HKCU`、免管理员，与旧版一致（满足"下载安装就能用"） | 已解决 |
+| ~~V2~~ | ~~注册表键与值~~ **已定**：状态 `HKCU\Software\LiudiDownloader`（`InstallDirectory`、`Version`，以及 IDM 备份值 `HadProgram` / `PreviousProgram` / `HadParameters` / `PreviousParameters` / `BackupSaved`）；卸载入口 `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\LiudiDownloader`（`DisplayName`=`留底下载器`、`DisplayVersion`、`Publisher`、`InstallLocation`、`UninstallString`、`NoModify`=1、`NoRepair`=0）；IDM 自己的键 `HKCU\Software\DownloadManager`（`VScannerProgram` / `VScannerParameters`）**只按 §6 的归属规则改写**。旧品牌残留（键 `IDMEagleAutoImport`、目录 `IDM-Eagle自动导入助手`）**不认领也不清理**——ADR-004 不做迁移，且认领范围若含旧版路径需在 V7 的安装器 UI 里询问用户 | 已解决 |
 | V4 | 卸载时数据库与用户目录的保留/询问策略 | 阶段 7 |
-| V5 | Go 安装器是否需要代码签名以避免 SmartScreen 与杀软误报 | **阶段 1**（提前验证） |
+| V5 | Go 安装器是否需要代码签名以避免 SmartScreen 与杀软误报 | **方案已定、结论待实测**：阶段 1 按 [13 §4](13-ROADMAP.md) 的 `V4` 实测——判据：① 未签名 `LiudiDownloader-Setup.exe` 带 Mark-of-the-Web 运行时 SmartScreen 是否拦截；② Windows Defender 是否报毒；③ 用户选"仍要运行"后能否装完。退路：被拦则二选一——买代码签名证书，或在发行说明给出图文绕过指引并**如实告知**。**拿到实测数据前不得宣称"不会被拦"** | 阶段 1 实测 |
 | V6 | 单文件载荷的嵌入与自解压实现方式 | 阶段 7 |
 | V7 | 安装器 UI 的最小交互集合 | 阶段 7 |
 | V8 | `--test-install` / `--test-uninstall` 的确切行为 | 阶段 7 |
+
+> **编号 `V3` 空缺**：本表自建立时起就没有 `V3`（不是漏删），全仓也没有任何地方引用它。该编号**不复用**——新增待确认项从 `V9` 续编，以免与 [13 §7](13-ROADMAP.md) 中按号引用 `V1`、`V2`、`V4`~`V8` 的地方错位。

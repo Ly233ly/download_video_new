@@ -77,7 +77,7 @@ hook 不碰数据库、不开 API、不做协议。它只：
 其余：403
 ```
 
-扩展 **manifest 中固定 `key` 字段**，使 ID 在开发者模式与打包后保持一致（Chrome 官方机制）。该 ID 以**编译常量**形式内置到桌面端，**无需安装器写入任何配置**。
+扩展 **manifest 中固定 `key` 字段**，使 ID 在开发者模式与打包后保持一致（Chrome 官方机制）。该 ID 以**编译常量**形式内置到桌面端，**无需安装器写入任何配置**。具体值、`manifest.key` 与 ID 生成方式见 [07 §1.1](07-EXTENSION.md)——**不在本文复制**（设计原则 3）。
 
 若需要临时用其他 ID 调试，可通过设置项覆盖。
 
@@ -137,13 +137,15 @@ hook 不碰数据库、不开 API、不做协议。它只：
 
 ```text
 download_refactor/
+├── main.go                  Wails 主程序入口（**必须在仓库根**，见下方说明）
+├── app.go                   主程序装配：Wails 生命周期接线
+├── wails.json               Wails 项目配置
 ├── README.md
 ├── docs/                    规范文档
 │   └── adr/                 架构决策记录
 ├── design/                  界面设计稿（静态 HTML，不参与构建）
 ├── adapters/                站点适配器（唯一事实源，见 docs/14）
 ├── cmd/
-│   ├── liudi-desktop/       主程序
 │   ├── liudi-capture/       捕获代理子进程
 │   ├── liudi-hook/          IDM 接收器
 │   └── liudi-installer/     安装器
@@ -158,6 +160,7 @@ download_refactor/
 │   ├── capture/             视频号捕获（含代理与 bridge）
 │   ├── cert/                证书签发、安装、移除
 │   ├── proxy/               系统代理改写与恢复
+│   ├── logging/             结构化日志、按大小轮转、敏感值兜底过滤（[12 §4]）
 │   ├── eagle/               Eagle 官方 API 客户端
 │   ├── idm/                 inbox 消费、入库、Eagle 导入
 │   ├── cache/               缓存统计与清理

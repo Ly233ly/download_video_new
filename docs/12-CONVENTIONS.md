@@ -10,7 +10,8 @@
 
 | 目录 | 职责 | 禁止 |
 | --- | --- | --- |
-| `cmd/` | 可执行入口，只做装配与依赖注入 | 含业务逻辑 |
+| 仓库根 `main.go` / `app.go` | Wails 主程序入口，只做装配与依赖注入（**必须在仓库根**，理由见 [01 §3](01-ARCHITECTURE.md)） | 含业务逻辑 |
+| `cmd/` | 其余可执行入口（`liudi-capture`、`liudi-hook`、`liudi-installer`），只做装配与依赖注入 | 含业务逻辑 |
 | `internal/` | 私有实现 | 被工作区外导入 |
 | `frontend/` | Web 前端 | 直接访问文件系统/进程/注册表 |
 | `extension/` | 浏览器扩展 | 引入构建步骤 |
@@ -258,7 +259,7 @@ FFmpeg、FFprobe、yt-dlp、Deno 固定版本并记录校验和（[10 §5.4](10-
 
 | # | 项 | 何时确认 |
 | --- | --- | --- |
-| Z1 | 静态分析与格式化的具体工具链 | 阶段 1 |
-| Z2 | 前端类型检查与测试框架 | 阶段 1 |
-| Z3 | **契约编号引用有效性**的校验脚本：扫描 `docs/` 中出现的 `B-xxx` / `P-1xx` / `A-1xx` 与源码中的 `// B-xxx` 标注，报告指向不存在编号的引用、以及 02/07/14 中定义但从未被 11 覆盖的编号。**它只查引用有效性，不要求每条契约都被标注**（与 §2 的契约标注规则一致） | **阶段 1**（提前：契约一旦开始被实现，漏掉哪条就没人看得见） |
+| ~~Z1~~ | ~~静态分析与格式化的具体工具链~~ **已定**：格式化 `gofmt`（标准库、无配置）；静态检查 `go vet` + **`golangci-lint`**（启用 `errcheck` / `govet` / `ineffassign` / `staticcheck` / `unused`）。落点 `build/check-go.ps1`，由 §6.2 门禁第 1 项调用。**不引入** `gosec`（本项目的对手是自己出的 bug，见 [ADR-003](adr/ADR-003-simplified-security.md)），也不用全量 linter 集（噪声大） | 已解决 |
+| ~~Z2~~ | ~~前端类型检查与测试框架~~ **已定**：类型检查 `tsc --noEmit`（`strict`）；lint 用 ESLint（`typescript-eslint` + `eslint-plugin-react-hooks` 的 `recommended-latest`，[16 §5.1 C3](16-FRONTEND.md) 要求）；格式化 Prettier（含 `prettier-plugin-tailwindcss`）；测试 **Vitest** + `@testing-library/react` + `jsdom`。落点 `frontend/package.json` 的 `check` / `test` 脚本，由 §6.2 门禁第 4 项调用 | 已解决 |
+| Z3 | **契约编号引用有效性**的校验脚本：扫描 `docs/` 中出现的 `B-xxx` / `P-1xx` / `A-1xx` 与源码中的 `// B-xxx` 标注，报告指向不存在编号的引用、以及 02/07/14 中定义但从未被 11 覆盖的编号。**它只查引用有效性，不要求每条契约都被标注**（与 §2 的契约标注规则一致） | **主体已落地**：`tools/Check-ContractCoverage.ps1` 已覆盖"定义 → 11 覆盖"与 `B-101/102` 式分组展开（`RESULT: OK`：B 120 · P 10 · A 17）。**阶段 1 收尾两项**：① `docs/` 中出现的编号必须存在于对应定义文档（反向检查）；② [11 §2](11-ACCEPTANCE.md) 每行必须带「类型」列——缺口实例：`T-UI-08` 曾缺列，使 117 项里只有 116 项带类型（`98+17+1≠117`）。源码 `// B-xxx` 扫描待源码出现后启用 | 部分已解决（阶段 1 收尾） |
 | Z4 | 日志保留量的最终值 | 阶段 2 |

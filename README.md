@@ -142,11 +142,12 @@ Windows 本机媒体下载与归档工具。**无登录、无账号、无配对�
 | 15 | [上游来源与合规](docs/15-UPSTREAM.md) | 复用 / 行为研究 / 二进制三类来源、GPL-3.0 义务、第三方库清单 |
 | 16 | [前端框架规范](docs/16-FRONTEND.md) | React 19、React Compiler、虚拟列表、渲染约束 |
 
-**另有实测记录**（不是规范，是阶段 0.5 的测量产物，供 [11 §3](docs/11-ACCEPTANCE.md) 的 `基线 × K` 判据代入）：
+**另有实测记录**（不是规范；`baseline.md` 是阶段 0.5 的**旧版**产物，供 [11 §3](docs/11-ACCEPTANCE.md) 的 `基线 × K` 判据代入；`phase1-report.md` 是**新实现**侧的分阶段验收数据——两者**分开存放**，不要混在一起看）：
 
 | 文档 | 内容 |
 | --- | --- |
-| [`docs/baseline.md`](docs/baseline.md) | 旧版 1.6.3 冻结版的冷启动与空闲常驻实测；未测项如实标注 |
+| [`docs/baseline.md`](docs/baseline.md) | **旧版** 1.6.3 冻结版的冷启动与空闲常驻实测；未测项如实标注 |
+| [`docs/phase1-report.md`](docs/phase1-report.md) | **新实现**阶段 1 的门禁实测（`T-STB-02` / `PF-A4` / `PF-A3` / `T-STB-05`）与逐项判定 |
 
 架构决策记录见 [`docs/adr/`](docs/adr/)。
 
