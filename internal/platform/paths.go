@@ -45,3 +45,16 @@ func ProxyRestorePath() (string, error) {
 	}
 	return filepath.Join(dir, "proxy-restore.json"), nil
 }
+
+// APIPortPath 返回本地 API 的端口发现文件路径（[01 §2.1] 的 S4）。
+//
+// 内容形如 `{"port":47652,"pid":1234}`，**在服务开始监听之后**写入。
+// 扩展按其中的 `pid` 校验进程仍在，再使用该端口——这是"装完即用、
+// 无需配对"在端口层面的落点（B-214 的发现机制）。
+func APIPortPath() (string, error) {
+	dir, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "api-port.json"), nil
+}

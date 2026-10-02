@@ -72,7 +72,7 @@ func main() {
 
 	// 窗口尺寸是阶段 1 的临时值；最终值属 [09 §9] 的 U4（阶段 6）。
 	err := wails.Run(&options.App{
-		Title:     app.ProductName,
+		Title:     app.WindowTitle(), // B-103：含版本号，测试构建带 [测试版]
 		Width:     1180,
 		Height:    760,
 		MinWidth:  940,

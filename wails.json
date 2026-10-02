@@ -6,6 +6,13 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "info": {
+    "companyName": "Ly233ly",
+    "productName": "留底下载器",
+    "productVersion": "2.0.0",
+    "copyright": "Copyright © 2026 Ly233ly",
+    "comments": "Windows 本机媒体下载与归档工具"
+  },
   "author": {
     "name": "Ly233ly",
     "email": "1610642015@qq.com"

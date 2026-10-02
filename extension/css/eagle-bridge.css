@@ -1,0 +1,1819 @@
+:root {
+    color-scheme: light;
+}
+
+html,
+body.popupBody {
+    width: 660px;
+    min-width: 660px;
+    height: 574px;
+    min-height: 574px;
+    max-height: 574px;
+    margin: 0;
+    overflow: hidden;
+    background: #f4f2ef;
+}
+
+html.bridge-expanded,
+body.popupBody.bridge-expanded {
+    width: 100%;
+    min-width: 360px;
+    height: 100vh;
+    min-height: 480px;
+    max-height: none;
+}
+
+body.popupBody {
+    color: #292623;
+    font-family: "MiSans VF", "MiSans", "Microsoft YaHei UI", "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+}
+
+#eagleBridgeRoot,
+#eagleBridgeRoot *,
+#eagleBridgeRoot *::before,
+#eagleBridgeRoot *::after {
+    box-sizing: border-box;
+}
+
+#eagleBridgeRoot {
+    width: 100%;
+    height: 100%;
+    color: #292623;
+    background: #f4f2ef;
+}
+
+.bridge-boot {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    color: #697386;
+    font-size: 14px;
+}
+
+.bridge-app {
+    --bridge-accent: #9a6470;
+    --bridge-accent-strong: #80515c;
+    --bridge-text: #292623;
+    --bridge-muted: #716c67;
+    --bridge-faint: #96908b;
+    --bridge-border: #ded9d4;
+    --bridge-border-strong: #cbc4be;
+    --bridge-surface: #f8f6f3;
+    --bridge-selected: #eee6e5;
+    --bridge-danger: #b24747;
+    --bridge-success: #3f7d4b;
+    display: grid;
+    grid-template-rows: 62px 44px minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    background: #f8f6f3;
+}
+
+.bridge-app button,
+.bridge-app input,
+.bridge-app select {
+    font: inherit;
+}
+
+.bridge-app button {
+    min-height: 36px;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.bridge-app button:focus-visible,
+.bridge-app input:focus-visible,
+.bridge-app select:focus-visible,
+.bridge-app summary:focus-visible {
+    outline: 3px solid rgba(154, 100, 112, 0.28);
+    outline-offset: 1px;
+}
+
+.bridge-app button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+}
+
+.bridge-header {
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 0 16px;
+    background: rgba(248, 246, 243, 0.96);
+    border-bottom: 1px solid var(--bridge-border);
+}
+
+.bridge-brand-lockup {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.bridge-brand-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.bridge-brand {
+    flex: 0 0 auto;
+    margin: 0;
+    color: #24211f;
+    font-size: 17px;
+    font-weight: 760;
+    letter-spacing: -0.02em;
+}
+
+.bridge-page-context {
+    display: grid;
+    min-width: 0;
+    margin-left: 14px;
+    padding-left: 14px;
+    border-left: 1px solid var(--bridge-border);
+}
+
+.bridge-page-title {
+    max-width: 150px;
+    overflow: hidden;
+    color: #3d3935;
+    font-size: 12px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-domain {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--bridge-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-connection {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    margin-left: 12px;
+    padding: 0 8px;
+    color: #5f5954;
+    background: #f0ece8 !important;
+    border: 1px solid var(--bridge-border) !important;
+    border-radius: 14px !important;
+    font-size: 12px;
+}
+
+.bridge-connection-dot {
+    width: 8px;
+    height: 8px;
+    background: #a2aabd;
+    border-radius: 50%;
+}
+
+.bridge-connection[data-state="paired"] .bridge-connection-dot {
+    background: var(--bridge-success);
+}
+
+.bridge-connection[data-state="offline"] .bridge-connection-dot,
+.bridge-connection[data-state="needs_pairing"] .bridge-connection-dot {
+    background: #a66b24;
+}
+
+.bridge-header-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.bridge-header-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 9px;
+    color: #5f5954;
+    font-size: 12px;
+}
+
+.bridge-header-action:hover,
+.bridge-header-action[aria-expanded="true"] {
+    background: #eee9e5;
+}
+
+.bridge-icon {
+    width: 17px;
+    height: 17px;
+    object-fit: contain;
+}
+
+.bridge-nav {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--bridge-border);
+}
+
+.bridge-nav-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 74px;
+    padding: 0 10px;
+    color: #625d58;
+    font-weight: 620;
+}
+
+.bridge-nav-button[aria-selected="true"] {
+    color: var(--bridge-accent-strong);
+}
+
+.bridge-nav-button[aria-selected="true"]::after {
+    position: absolute;
+    right: 5px;
+    bottom: -1px;
+    left: 5px;
+    height: 3px;
+    background: var(--bridge-accent);
+    border-radius: 3px 3px 0 0;
+    content: "";
+}
+
+.bridge-task-badge {
+    display: inline-grid;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    place-items: center;
+    color: #ffffff;
+    background: var(--bridge-accent);
+    border-radius: 10px;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.bridge-content {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: #f8f6f3;
+}
+
+.bridge-panel {
+    width: 100%;
+    height: 100%;
+}
+
+.bridge-panel[hidden] {
+    display: none !important;
+}
+
+.bridge-media-layout {
+    display: grid;
+    grid-template-columns: 310px minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+}
+
+.bridge-sidebar {
+    display: grid;
+    grid-template-rows: 48px minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    border-right: 1px solid var(--bridge-border);
+    background: #f3f0ec;
+}
+
+.bridge-sidebar-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 16px;
+    border-bottom: 1px solid var(--bridge-border);
+}
+
+.bridge-sidebar-title {
+    color: #403b37;
+    font-weight: 650;
+}
+
+.bridge-filter-button {
+    min-width: 48px;
+    padding: 0 8px;
+    color: #68615c;
+    font-size: 12px;
+}
+
+#bridgeBatchButton {
+    margin-left: auto;
+}
+
+#bridgeFilterButton {
+    margin-left: 3px;
+}
+
+.bridge-filter-button:hover,
+.bridge-filter-button[aria-expanded="true"] {
+    background: #e9e4df;
+}
+
+.bridge-filter-popover {
+    position: absolute;
+    z-index: 8;
+    top: 42px;
+    right: 8px;
+    width: 268px;
+    max-height: 404px;
+    overflow-y: auto;
+    padding: 12px;
+    background: rgba(252, 250, 248, 0.98);
+    border: 1px solid var(--bridge-border);
+    border-radius: 16px;
+    box-shadow: 0 10px 24px rgba(54, 45, 40, 0.1);
+}
+
+.bridge-filter-popover[hidden] {
+    display: none;
+}
+
+.bridge-filter-label {
+    display: block;
+    margin-bottom: 5px;
+    color: #596579;
+    font-size: 12px;
+}
+
+.bridge-search-input,
+.bridge-field-input,
+.bridge-field-select {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 11px;
+    color: var(--bridge-text);
+    background: #fdfcfb;
+    border: 1px solid var(--bridge-border-strong);
+    border-radius: 12px;
+}
+
+.bridge-search-input::placeholder,
+.bridge-field-input::placeholder {
+    color: #9aa3b3;
+}
+
+.bridge-scope-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 10px;
+}
+
+.bridge-scope-option {
+    display: grid;
+    min-height: 34px;
+    place-items: center;
+    color: #68615c;
+    background: #efeae6;
+    border-radius: 11px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.bridge-scope-option:has(input:checked) {
+    color: var(--bridge-accent-strong);
+    background: var(--bridge-selected);
+    font-weight: 650;
+}
+
+.bridge-scope-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bridge-filter-field {
+    display: block;
+    margin-top: 10px;
+    color: #68615c;
+    font-size: 12px;
+}
+
+.bridge-filter-field > span {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.bridge-filter-field input,
+.bridge-filter-field select {
+    width: 100%;
+    min-height: 36px;
+    padding: 0 9px;
+    color: var(--bridge-text);
+    background: #fdfcfb;
+    border: 1px solid var(--bridge-border-strong);
+    border-radius: 11px;
+}
+
+.bridge-filter-check {
+    display: flex;
+    min-height: 34px;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: #5f5954;
+    font-size: 12px;
+}
+
+.bridge-filter-error {
+    margin-top: 7px;
+    color: var(--bridge-danger);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.bridge-filter-error[hidden] {
+    display: none;
+}
+
+.bridge-group-list {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.bridge-group-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    border-bottom: 1px solid #ded9d4;
+    content-visibility: auto;
+    contain-intrinsic-size: 108px;
+}
+
+.bridge-group-item[data-batch="true"] {
+    grid-template-columns: 34px minmax(0, 1fr);
+}
+
+.bridge-batch-check {
+    display: grid;
+    place-items: center;
+    background: #f0ece8;
+    border-right: 1px solid #ded9d4;
+    cursor: pointer;
+}
+
+.bridge-batch-check input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--bridge-accent);
+}
+
+.bridge-group-row {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    width: 100%;
+    min-height: 108px;
+    padding: 13px 16px;
+    text-align: left;
+    border-bottom: 0 !important;
+    border-radius: 0 !important;
+}
+
+.bridge-group-row:hover {
+    background: #f7f3f0;
+}
+
+.bridge-group-row[aria-current="true"] {
+    padding-left: 13px;
+    background: var(--bridge-selected);
+    border-left: 3px solid var(--bridge-accent) !important;
+}
+
+.bridge-segment-only .bridge-group-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+    min-height: 64px;
+    gap: 10px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.bridge-segment-only .bridge-thumb-wrap {
+    width: 48px;
+    height: 38px;
+}
+
+.bridge-segment-only .bridge-group-name {
+    -webkit-line-clamp: 1;
+}
+
+.bridge-segment-only .bridge-group-summary {
+    margin-top: 3px;
+}
+
+.bridge-segment-only .bridge-group-meta {
+    display: none;
+}
+
+.bridge-thumb-wrap {
+    position: relative;
+    align-self: center;
+    width: 92px;
+    height: 68px;
+    overflow: hidden;
+    background: #e8e3df;
+    border-radius: 12px;
+}
+
+.bridge-thumb,
+.bridge-remote-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bridge-remote-preview {
+    display: block;
+    background: #e8e3df;
+}
+
+.bridge-preview-fallback[hidden],
+.bridge-remote-preview[hidden] {
+    display: none;
+}
+
+.bridge-duration {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    padding: 1px 5px;
+    color: #ffffff;
+    background: rgba(20, 27, 39, 0.78);
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.bridge-segment-glyph {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    color: #716c67;
+    font-size: 11px;
+    font-weight: 700;
+    background: #e8e3df;
+    place-items: center;
+}
+
+.bridge-group-copy {
+    min-width: 0;
+    align-self: center;
+}
+
+.bridge-group-name {
+    display: -webkit-box;
+    overflow: hidden;
+    color: #302c29;
+    font-size: 14px;
+    font-weight: 680;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.bridge-group-summary {
+    margin-top: 8px;
+    overflow: hidden;
+    color: var(--bridge-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-group-meta {
+    display: flex;
+    gap: 5px;
+    margin-top: 6px;
+    color: #7d8798;
+    font-size: 11px;
+}
+
+.bridge-empty-sidebar,
+.bridge-empty-state {
+    display: grid;
+    min-height: 100%;
+    padding: 28px;
+    place-content: center;
+    text-align: center;
+}
+
+.bridge-empty-sidebar {
+    color: #7a8596;
+    font-size: 13px;
+}
+
+.bridge-inspector {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 22px 26px 18px;
+    margin: 12px;
+    padding: 18px 20px;
+    background: #fcfbf9;
+    border: 1px solid var(--bridge-border);
+    border-radius: 20px;
+    overscroll-behavior: contain;
+}
+
+.bridge-inspector-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 180px;
+    margin: 0 0 16px;
+    overflow: hidden;
+    background: #e8e3df;
+    border: 1px solid var(--bridge-border);
+    border-radius: 16px;
+}
+
+.bridge-inspector-preview img,
+.bridge-inspector-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bridge-inspector-preview figcaption {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    padding: 2px 7px;
+    color: #ffffff;
+    background: rgba(20, 27, 39, 0.78);
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.bridge-inspector-title {
+    margin: 0;
+    overflow: hidden;
+    color: #292623;
+    font-size: 20px;
+    font-weight: 740;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-segment-inspector {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 8px;
+    padding: 16px;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid var(--bridge-border);
+    border-radius: 10px;
+}
+
+.bridge-segment-inspector .bridge-segment-glyph {
+    width: 56px;
+    height: 44px;
+    border-radius: 8px;
+}
+
+.bridge-segment-inspector h2 {
+    margin: 0 0 5px;
+    color: #263244;
+    font-size: 15px;
+}
+
+.bridge-segment-inspector p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.bridge-inspector-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 7px;
+    padding-bottom: 17px;
+    color: #697386;
+    border-bottom: 1px solid var(--bridge-border);
+    font-size: 12px;
+}
+
+.bridge-field {
+    display: block;
+    margin-top: 16px;
+}
+
+.bridge-field-label {
+    display: block;
+    margin-bottom: 7px;
+    color: #30394a;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.bridge-field-select {
+    appearance: auto;
+    cursor: pointer;
+}
+
+.bridge-selection-summary {
+    min-height: 42px;
+    padding: 10px 12px;
+    color: #5f3d45;
+    background: #f3ecec;
+    border: 1px solid #d8c1c6;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 20px;
+}
+
+.bridge-field-hint {
+    display: block;
+    margin-top: 7px;
+    color: #697386;
+    font-size: 11px;
+    line-height: 16px;
+}
+
+.bridge-action-summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    min-height: 44px;
+    margin-top: 14px;
+    padding: 11px 12px;
+    color: #625d58;
+    background: #f3f0ed;
+    border: 1px solid #e1dcd7;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.bridge-info-icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+}
+
+.bridge-field-error {
+    margin-top: 8px;
+    color: var(--bridge-danger);
+    font-size: 12px;
+}
+
+.bridge-advanced {
+    margin-top: 12px;
+}
+
+.bridge-advanced > summary {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    color: var(--bridge-accent-strong);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 650;
+    list-style: none;
+}
+
+.bridge-advanced > summary::-webkit-details-marker {
+    display: none;
+}
+
+.bridge-advanced-body {
+    margin-top: 5px;
+    padding: 12px;
+    background: #f5f2ef;
+    border: 1px solid #e1dcd7;
+    border-radius: 12px;
+}
+
+.bridge-technical-list {
+    display: grid;
+    gap: 6px;
+}
+
+.bridge-technical-row {
+    overflow-wrap: anywhere;
+    color: #716c67;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.bridge-subtitle-list {
+    display: grid;
+    gap: 7px;
+    margin-top: 8px;
+}
+
+.bridge-check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    color: #505b6f;
+    font-size: 12px;
+}
+
+.bridge-technical-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.bridge-small-button,
+.bridge-secondary-button {
+    border: 1px solid var(--bridge-border-strong) !important;
+    background: #fcfbf9 !important;
+}
+
+.bridge-small-button {
+    min-height: 32px !important;
+    padding: 0 9px;
+    color: #4f5a6d !important;
+    font-size: 12px !important;
+}
+
+.bridge-small-button:hover,
+.bridge-secondary-button:hover {
+    color: var(--bridge-accent-strong) !important;
+    border-color: #b99099 !important;
+}
+
+.bridge-primary-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 112px;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.bridge-primary-button,
+.bridge-secondary-button {
+    min-height: 42px !important;
+    padding: 0 14px;
+    border-radius: 13px !important;
+    font-weight: 680 !important;
+}
+
+.bridge-primary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #ffffff !important;
+    background: var(--bridge-accent) !important;
+}
+
+.bridge-primary-button:hover:not(:disabled) {
+    background: var(--bridge-accent-strong) !important;
+}
+
+.bridge-secondary-button {
+    color: #334057 !important;
+}
+
+.bridge-legal-note {
+    margin: 10px 0 0;
+    color: #9099a9;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.bridge-batch-description {
+    margin: 16px 0 12px;
+    color: #5c6779;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.bridge-batch-selection-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.bridge-batch-summary-list {
+    display: grid;
+    gap: 7px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid var(--bridge-border);
+    border-radius: 8px;
+}
+
+.bridge-batch-summary-list > div:not(.bridge-batch-empty):not(.bridge-batch-more) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+.bridge-batch-summary-list span {
+    overflow: hidden;
+    color: #303a4c;
+    font-size: 12px;
+    font-weight: 640;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-batch-summary-list small,
+.bridge-batch-empty,
+.bridge-batch-more {
+    color: #7b8596;
+    font-size: 11px;
+}
+
+.bridge-empty-state h2 {
+    margin: 0;
+    color: #20293a;
+    font-size: 18px;
+}
+
+.bridge-empty-state p {
+    max-width: 330px;
+    margin: 10px auto 18px;
+    color: #697386;
+    line-height: 1.65;
+}
+
+.bridge-empty-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.bridge-section-view {
+    height: 100%;
+    overflow-y: auto;
+    padding: 20px 24px 24px;
+    background: #f8f6f3;
+}
+
+.bridge-section-header {
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 15px;
+}
+
+.bridge-section-header h2 {
+    margin: 0;
+    color: #292623;
+    font-size: 20px;
+}
+
+.bridge-section-header p {
+    margin: 4px 0 0;
+    color: #6f7a8c;
+    font-size: 12px;
+}
+
+.bridge-section-header .bridge-small-button {
+    margin-left: auto;
+}
+
+.bridge-section-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.bridge-section-actions .bridge-small-button {
+    margin-left: 0;
+}
+
+.bridge-danger-button {
+    color: var(--bridge-danger);
+    border-color: color-mix(in srgb, var(--bridge-danger) 30%, var(--bridge-border));
+}
+
+.bridge-task-list {
+    display: grid;
+    gap: 0;
+    background: #fcfbf9;
+    border: 1px solid var(--bridge-border);
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+.bridge-task-row {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    min-height: 76px;
+    padding: 12px 14px;
+    background: #fcfbf9;
+    border: 0;
+    border-bottom: 1px solid var(--bridge-border);
+    border-radius: 0;
+}
+
+.bridge-task-row:last-child {
+    border-bottom: 0;
+}
+
+.bridge-task-thumb {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    background: #e8e3df;
+    border-radius: 11px;
+}
+
+.bridge-task-copy {
+    min-width: 0;
+}
+
+.bridge-task-name {
+    overflow: hidden;
+    color: #302c29;
+    font-weight: 670;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-task-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    color: var(--bridge-muted);
+    font-size: 12px;
+}
+
+.bridge-progress-track {
+    flex: 1 1 auto;
+    min-width: 80px;
+    max-width: 220px;
+    height: 6px;
+    overflow: hidden;
+    background: #e7e1de;
+    border-radius: 4px;
+}
+
+.bridge-progress-value {
+    display: block;
+    height: 100%;
+    background: var(--bridge-accent);
+    transition: width 180ms ease;
+}
+
+.bridge-task-error {
+    margin-top: 5px;
+    color: var(--bridge-danger);
+    font-size: 12px;
+}
+
+.bridge-task-detail {
+    margin-top: 5px;
+    color: var(--bridge-muted);
+    font-size: 12px;
+}
+
+.bridge-task-meta {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+    color: var(--bridge-faint);
+    font-size: 11px;
+}
+
+.bridge-task-path {
+    max-width: 100%;
+    margin-top: 5px;
+    overflow: hidden;
+    color: #596579;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-task-actions {
+    display: grid;
+    gap: 6px;
+    justify-items: stretch;
+}
+
+.bridge-import-existing {
+    color: #ffffff;
+    background: var(--bridge-accent);
+    border-color: var(--bridge-accent);
+}
+
+.bridge-sync-warning {
+    margin-bottom: 10px;
+    padding: 9px 11px;
+    color: #8a4b08;
+    font-size: 12px;
+    background: #fff7e8;
+    border: 1px solid #f0c77e;
+    border-radius: 12px;
+}
+
+.bridge-tool-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.bridge-tool-button {
+    display: flex;
+    min-height: 62px !important;
+    align-items: center;
+    gap: 10px;
+    padding: 10px !important;
+    text-align: left;
+    background: #f5f2ef !important;
+    border: 1px solid #e1dcd7 !important;
+    border-radius: 13px !important;
+}
+
+.bridge-tool-button:hover {
+    background: #f1e9e9 !important;
+    border-color: #c8a6ae !important;
+}
+
+.bridge-tool-button[data-active="true"] {
+    color: var(--bridge-accent-strong);
+    background: var(--bridge-selected) !important;
+    border-color: #bd959e !important;
+}
+
+.bridge-tool-button img {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.bridge-tool-name {
+    display: block;
+    color: #303a4c;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.bridge-tool-state {
+    display: block;
+    margin-top: 3px;
+    color: #7b8596;
+    font-size: 11px;
+}
+
+.bridge-settings-menu {
+    position: absolute;
+    z-index: 20;
+    top: 49px;
+    right: 12px;
+    width: 286px;
+    max-height: 490px;
+    overflow-y: auto;
+    padding: 12px;
+    background: rgba(252, 250, 248, 0.98);
+    border: 1px solid var(--bridge-border);
+    border-radius: 17px;
+    box-shadow: 0 12px 28px rgba(54, 45, 40, 0.12);
+}
+
+.bridge-settings-menu[hidden] {
+    display: none;
+}
+
+.bridge-settings-heading {
+    margin: 0;
+    color: #20293a;
+    font-size: 14px;
+}
+
+.bridge-settings-domain {
+    margin: 3px 0 12px;
+    overflow: hidden;
+    color: #7b8596;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-setting-row {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 8px;
+    color: #414c5f;
+    border-top: 1px solid #eef1f5;
+    font-size: 12px;
+}
+
+.bridge-setting-row:first-of-type {
+    border-top: 0;
+}
+
+.bridge-switch {
+    position: relative;
+    display: inline-flex;
+    width: 38px;
+    height: 22px;
+    margin-left: auto;
+    align-items: center;
+    padding: 2px;
+    background: #c9c1bb;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.bridge-switch::after {
+    width: 18px;
+    height: 18px;
+    background: #ffffff;
+    border-radius: 50%;
+    content: "";
+    transition: transform 140ms ease;
+}
+
+.bridge-switch:has(input:checked) {
+    background: var(--bridge-accent);
+}
+
+.bridge-switch:has(input:checked)::after {
+    transform: translateX(16px);
+}
+
+.bridge-switch input {
+    position: absolute;
+    opacity: 0;
+}
+
+.bridge-settings-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.bridge-settings-advanced {
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid #eef1f5;
+}
+
+.bridge-settings-advanced > p {
+    margin: 0 0 8px;
+    color: #7a8495;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.bridge-settings-advanced .bridge-tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bridge-settings-advanced .bridge-tool-button {
+    min-height: 54px !important;
+}
+
+.bridge-connect-box {
+    margin: 4px 0 10px;
+    padding: 10px;
+    background: #fff8ed;
+    border: 1px solid #f1d4aa;
+    border-radius: 8px;
+}
+
+.bridge-connect-box p {
+    margin: 0 0 8px;
+    color: #76511d;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.bridge-toast {
+    position: absolute;
+    z-index: 40;
+    right: 18px;
+    bottom: 18px;
+    max-width: 360px;
+    min-height: 38px;
+    padding: 10px 13px;
+    color: #ffffff;
+    background: #403936;
+    border-radius: 13px;
+    box-shadow: 0 8px 22px rgba(54, 45, 40, 0.16);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.bridge-toast[data-kind="error"] {
+    background: #9f2f2a;
+}
+
+.bridge-toast[hidden] {
+    display: none;
+}
+
+.bridge-visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+@media (forced-colors: active) {
+    .bridge-nav-button[aria-selected="true"],
+    .bridge-group-row[aria-current="true"],
+    .bridge-tool-button[data-active="true"] {
+        border: 2px solid Highlight !important;
+    }
+}
+
+@media (max-width: 599px) {
+    .bridge-expanded .bridge-header {
+        padding: 0 12px;
+    }
+
+    .bridge-expanded .bridge-domain {
+        display: none;
+    }
+
+    .bridge-expanded .bridge-media-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(190px, 42%) minmax(0, 58%);
+    }
+
+    .bridge-expanded .bridge-sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--bridge-border);
+    }
+
+    .bridge-expanded .bridge-inspector {
+        padding: 18px;
+    }
+
+    .bridge-expanded .bridge-tool-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ============================================================================
+ * 重写版的补充规则（阶段 2 · 列表渲染重写与 09 §4.8 的弹窗结构）
+ *
+ * 上面是沿用旧项目的样式。下面这些规则服务于重写后的弹窗：
+ *   - 三段式壳层：标题栏 · 标签页 · 内容区（含底部操作栏）（09 §4.8）；
+ *   - 虚拟滚动列表：固定行高 56px、可见 12 行、上 3 下 5 缓冲（07 §6.2 `P-105`）；
+ *   - 每行只有 2 个节点（行 + 文本），缩略图由行自身的 `background-image` 承担
+ *     （`PF-A7`：200 条候选下 DOM 节点总数 ≤ 60）；
+ *   - 设置页的标准设置项与小节标题（09 §4.8）；
+ *   - 自定义 tooltip（09 §4.7：禁止用原生 `title` 承载正文说明）；
+ *   - 标签页数字角标。
+ *
+ * 全部颜色取自 `.bridge-app` 上已有的 token（09 §4.2：一处事实，一处定义）。
+ * ========================================================================== */
+
+/* 三段式壳层：标题栏 · 标签页 · 内容区。底部操作栏在内容区之内，
+ * 由 `.bridge-panel` 自己排布（候选与任务各有一条）。 */
+.bridge-app {
+    grid-template-rows: 62px 44px minmax(0, 1fr);
+}
+
+.bridge-panel {
+    display: grid;
+    /* 候选面板：内容区 · 批量操作栏（可隐藏）· 底部操作栏。
+     * 两个 auto 行在 `hidden` 时塌成 0（浏览器对 `[hidden]` 施加 `display:none`）。 */
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    min-height: 0;
+}
+
+.bridge-panel[data-panel="tasks"] {
+    grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.bridge-panel[data-panel="settings"] {
+    grid-template-rows: minmax(0, 1fr);
+}
+
+.bridge-media-layout,
+.bridge-section-view {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+}
+
+.bridge-media-layout {
+    grid-template-columns: 310px minmax(0, 1fr);
+}
+
+.bridge-section-view {
+    grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+/* 底部操作栏（09 §4.8：固定） */
+.bridge-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 10px 18px;
+    background: #f8f6f3;
+    border-top: 1px solid var(--bridge-border);
+}
+
+.bridge-footer[hidden] {
+    display: none !important;
+}
+
+.bridge-footer .bridge-primary-button,
+.bridge-footer .bridge-secondary-button {
+    min-width: 132px;
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 12px;
+    font-weight: 620;
+}
+
+.bridge-footer .bridge-primary-button {
+    color: #ffffff;
+    background: var(--bridge-accent);
+}
+
+.bridge-footer .bridge-primary-button:hover:not([disabled]) {
+    background: var(--bridge-accent-strong);
+}
+
+.bridge-footer .bridge-secondary-button {
+    color: var(--bridge-text);
+    background: var(--bridge-surface);
+    border: 1px solid var(--bridge-border-strong);
+}
+
+.bridge-footer .bridge-legal-note {
+    flex: 1 1 100%;
+    margin: 0;
+    color: var(--bridge-faint);
+    font-size: 11.5px;
+}
+
+.bridge-primary-button[disabled],
+.bridge-secondary-button[disabled],
+.bridge-small-button[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* 标签页数字角标（09 §4.8：活动条目数；无内容时不显示） */
+.bridge-tab-badge {
+    display: inline-grid;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    place-items: center;
+    color: #ffffff;
+    background: var(--bridge-accent);
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 620;
+    line-height: 1;
+}
+
+.bridge-tab-badge[hidden] {
+    display: none !important;
+}
+
+/* 虚拟滚动：视口负责滚动，列表容器承载行节点。
+ * 高度固定为 12 × 56px = 672px，让窗口计算与 `P-105` 的固定参数严格对应。 */
+.bridge-list-viewport {
+    position: relative;
+    height: 672px;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.bridge-group-list,
+.bridge-task-list {
+    position: relative;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* `P-105` 的固定行高。占位元素撑出总高度；`transform` 定位每一行。 */
+.bridge-list-spacer {
+    pointer-events: none;
+}
+
+.bridge-row {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    height: 56px;
+    padding: 0 12px 0 10px;
+    background-color: transparent;
+    background-repeat: no-repeat;
+    background-position: 10px center;
+    background-size: 60px 40px;
+    border-bottom: 1px solid var(--bridge-border);
+    cursor: pointer;
+    contain: layout paint style;
+}
+
+.bridge-row:hover {
+    background-color: #efeae5;
+}
+
+.bridge-row-selected {
+    background-color: var(--bridge-selected);
+}
+
+.bridge-row:focus-visible {
+    outline: 3px solid rgba(154, 100, 112, 0.28);
+    outline-offset: -3px;
+}
+
+/* 每行唯一的子节点：一行候选信息（标题 · 摘要 · 来源与条目数）。 */
+.bridge-row-text {
+    grid-column: 2;
+    overflow: hidden;
+    color: var(--bridge-text);
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-row-selected .bridge-row-text {
+    font-weight: 620;
+}
+
+/* 技术资源行（B-205 的诊断分区）：缩略图区留空，不给它加载图片。 */
+.bridge-row-technical {
+    background-image: none !important;
+}
+
+.bridge-row-technical .bridge-row-text {
+    color: var(--bridge-faint);
+}
+
+/* 任务列表行同样只有 2 个节点：行 + 文本。 */
+.bridge-task-list .bridge-row {
+    grid-template-columns: minmax(0, 1fr);
+    height: 56px;
+    background-image: none;
+}
+
+.bridge-task-list .bridge-row-text {
+    grid-column: 1;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.bridge-task-empty {
+    padding: 24px 16px;
+}
+
+/* 批量操作栏 */
+.bridge-batch-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--bridge-surface);
+    border-top: 1px solid var(--bridge-border);
+}
+
+.bridge-batch-bar[hidden] {
+    display: none !important;
+}
+
+.bridge-batch-count {
+    margin-right: auto;
+    color: var(--bridge-muted);
+    font-size: 12px;
+    font-weight: 620;
+}
+
+/* 设置页：一行一项，左侧「名称 + 一行说明」，右侧控件（09 §4.8）。 */
+.bridge-settings {
+    height: 100%;
+    overflow-y: auto;
+    padding: 16px 18px 28px;
+}
+
+.bridge-sect {
+    margin: 6px 0 8px;
+    color: var(--bridge-faint);
+    font-size: 11.5px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.bridge-sect:not(:first-child) {
+    margin-top: 22px;
+}
+
+.bridge-setting-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 52px;
+    padding: 10px 12px;
+    background: #f8f6f3;
+    border: 1px solid var(--bridge-border);
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.bridge-setting-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    margin-right: auto;
+}
+
+.bridge-setting-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--bridge-text);
+    font-size: 13px;
+    font-weight: 620;
+}
+
+/* 说明只允许一行、11.5px、三级文字色（09 §4.8）。 */
+.bridge-setting-hint {
+    overflow: hidden;
+    color: var(--bridge-faint);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bridge-setting-value {
+    color: var(--bridge-muted);
+    font-size: 12px;
+}
+
+.bridge-info {
+    display: inline-grid;
+    width: 16px;
+    height: 16px;
+    place-items: center;
+    color: var(--bridge-faint);
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 10px;
+    line-height: 1;
+    cursor: help;
+}
+
+.bridge-info:hover,
+.bridge-info:focus-visible {
+    color: var(--bridge-accent);
+    outline: none;
+}
+
+.bridge-switch {
+    display: inline-flex;
+    align-items: center;
+}
+
+.bridge-switch input[type="checkbox"] {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    margin: 0;
+    appearance: none;
+    background: var(--bridge-border-strong);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 120ms ease;
+}
+
+.bridge-switch input[type="checkbox"]::after {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(54, 45, 40, 0.24);
+    content: "";
+    transition: transform 120ms ease;
+}
+
+.bridge-switch input[type="checkbox"]:checked {
+    background: var(--bridge-accent);
+}
+
+.bridge-switch input[type="checkbox"]:checked::after {
+    transform: translateX(16px);
+}
+
+.bridge-switch input[type="checkbox"][disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.bridge-pill {
+    padding: 3px 10px;
+    color: var(--bridge-muted);
+    background: rgba(113, 108, 103, 0.1);
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 620;
+}
+
+.bridge-pill[data-state="connected"] {
+    color: var(--bridge-success);
+    background: rgba(63, 125, 75, 0.12);
+}
+
+.bridge-pill[data-state="offline"] {
+    color: var(--bridge-danger);
+    background: rgba(178, 71, 71, 0.1);
+}
+
+.bridge-connect-box {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 12px;
+    background: #f8f6f3;
+    border: 1px solid var(--bridge-border);
+    border-left: 3px solid var(--bridge-accent);
+    border-radius: 12px;
+}
+
+.bridge-connect-box p {
+    margin: 0;
+    color: var(--bridge-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.bridge-settings-legal {
+    margin: 18px 0 0;
+    color: var(--bridge-faint);
+    font-size: 11.5px;
+}
+
+/* `09 §4.7`：详细说明用自定义 tooltip，禁止用原生 title 承载正文。 */
+.bridge-tooltip {
+    z-index: 999;
+    width: 262px;
+    padding: 8px 10px;
+    color: #ffffff;
+    background: rgba(41, 38, 35, 0.96);
+    border-radius: 10px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    white-space: normal;
+    box-shadow: 0 8px 20px rgba(54, 45, 40, 0.24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bridge-switch input[type="checkbox"],
+    .bridge-switch input[type="checkbox"]::after {
+        transition: none;
+    }
+}
+

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>留底浏览器扩展</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" type="text/css" href="css/eagle-bridge.css" media="all">
+</head>
+
+<body class="popupBody">
+  <!--
+    入口只有这一处骨架。**整个界面由 js/eagle-bridge-ui.js 用 DOM API 构建**：
+    候选/任务列表禁止整体重建（07 §6.2 `P-102`），列表容器及其祖先不得被赋
+    `innerHTML`。因此这里不放任何会被整体替换的宿主标记。
+  -->
+  <main id="eagleBridgeRoot" aria-busy="true"></main>
+
+  <script src="js/virtual-list.js"></script>
+  <script src="js/eagle-bridge-ui-logic.js"></script>
+  <script src="js/eagle-bridge-ui.js"></script>
+</body>
+
+</html>

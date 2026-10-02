@@ -1,0 +1,62 @@
+{
+  "background": {
+    "service_worker": "js/background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "留底浏览器扩展",
+    "default_popup": "popup.html"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "description": "免费开源的 Windows 本机媒体下载与归档工具",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "manifest_version": 3,
+  "minimum_chrome_version": "114",
+  "name": "留底浏览器扩展",
+  "homepage_url": "https://github.com/Ly233ly/download_video_new",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2KfHArZr5gmCNknE98sDpRBmOscV5ObEsBF9OWVHp1SRhDWsKu9SXtoPJM56Bn7Iv4JbimOma92PIh4sT32oZ98XCI7QIp+HovG0gipirJC4ZZ7DtiNH2EAKlMeIhUcdLEMnyDn8XKNeofpP60PtPPSLI7+bzidAQ2xY7SG5W3B9PhPZezfXW5ZzuJAmpz5V2df9R/Q/bpVxXEPYYfXkmitMJLtK46R+ToAIv4lO6OaiXZs5zsHF0YISw8qUJb9Kj3y8wGstp62USc2r9zNDaUC9gfaWpZ3erozhsT0XFekqTkAl64MhlgAo0lubA8OUpucVO1uB8/sAaL3TJ/jj5wIDAQAB",
+  "permissions": [
+    "tabs",
+    "webRequest",
+    "storage",
+    "webNavigation",
+    "alarms",
+    "scripting",
+    "sidePanel"
+  ],
+  "commands": {
+    "_execute_action": {}
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ],
+      "js": [
+        "js/eagle-bridge-candidate-logic.js",
+        "js/content-script.js",
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "version": "2.0.0",
+  "incognito": "split"
+}
