@@ -33,7 +33,7 @@
 | 设计稿 | [`design/mockup.html`](design/mockup.html) 已定稿（浅色主调 + 白卡片 + 蓝），含扩展弹窗的候选/任务/设置三个标签页 |
 | 自检 | 文档断链 0、跨文档章节引用全有效、设计稿自检脚本 `exit=0` |
 | 环境 | **Go 1.27.1 已装**（`C:\Users\MSI\go-sdk\go`，ZIP 免管理员）· **Wails CLI v2.16.0 已装**（`C:\Users\MSI\go\bin`）· WebView2 Runtime 已装 · **`wails build` 实测通过**（见 §3.4，**不需要 C 编译器**） |
-| 代码 | **89 个 Go 文件 · 28 个前端 ts/tsx · 10 个扩展 JS**（2026-10-02 阶段 3 收尾实测，已排除 `node_modules` 与 `media-tools`；阶段 2 完成时为 72 + 29 + 8）。本阶段新增：`internal/adapter/`（加载/校验/匹配）、`internal/media/{manifest,merge,page,route}.go`、`extension/js/eagle-bridge-candidate-logic.js` 的 `adapter*` 引擎、`adapters/douyin/fixtures/`、`build/gen-site-adapters.ps1`。**阶段 3 的改动在收尾提交前仍只在工作区**（末次提交 `dd750ec` = 阶段 2）。Go 门禁：[`build/check-go.ps1`](build/check-go.ps1) 的 gofmt 与 go vet 通过；`golangci-lint` 本机**未安装**，该步为 `INCOMPLETE`（退出码 2，**不视为通过**） |
+| 代码 | **89 个 Go 文件 · 28 个前端 ts/tsx · 10 个扩展 JS**（2026-10-02 阶段 3 收尾实测，已排除 `node_modules` 与 `media-tools`；阶段 2 完成时为 72 + 29 + 8）。本阶段新增：`internal/adapter/`（加载/校验/匹配）、`internal/media/{manifest,merge,page,route}.go`、`extension/js/eagle-bridge-candidate-logic.js` 的 `adapter*` 引擎、`adapters/douyin/fixtures/`、`build/gen-site-adapters.ps1`。**阶段 3 已入库并推送**：`735e243`（阶段 3 主体）· `416a726`（把生成物 `extension/site-adapters.json` 钉死为不做换行转换，让第 6 项门禁在全新克隆后仍可复现），`main` = `416a726`。Go 门禁：[`build/check-go.ps1`](build/check-go.ps1) 的 gofmt 与 go vet 通过；`golangci-lint` 本机**未安装**，该步为 `INCOMPLETE`（退出码 2，**不视为通过**） |
 
 ### 已完成的关键事项（不需要重做）
 
