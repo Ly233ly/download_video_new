@@ -111,3 +111,30 @@ func TestTranslateEngineError_KeepsCodeAndSafeMessage(t *testing.T) {
 		t.Errorf("未带码的错误应当原样上抛，实得 %v", got)
 	}
 }
+
+// 站点适配器声明的错误（[14 §5.2]）走的是**码与文案都由声明给出**这条路：
+// 生产路径必须逐字透传，既不能套用码表的通用文案，也不能把解析工具的原始
+// 输出（可能带签名 URL）带出去（[05 §4.2]、B-722）。
+func TestTranslateEngineError_PassesSiteDeclarationThrough(t *testing.T) {
+	site := &media.SiteError{
+		Code:    "douyin_session_expired",
+		Message: "抖音需要当前浏览器的新鲜会话，请刷新抖音页面后重试",
+	}
+	translated := translateEngineError(site)
+
+	var downloadErr *DownloadError
+	if !errors.As(translated, &downloadErr) {
+		t.Fatalf("翻译结果不是 *DownloadError：%T", translated)
+	}
+	if downloadErr.Code != "douyin_session_expired" {
+		t.Errorf("错误码 = %q，期望声明给出的 douyin_session_expired", downloadErr.Code)
+	}
+	if downloadErr.Message != "抖音需要当前浏览器的新鲜会话，请刷新抖音页面后重试" {
+		t.Errorf("消息 = %q，期望逐字等于声明文案", downloadErr.Message)
+	}
+	// 站点声明的码不在 [05 §7.1~§7.3] 的固定表里，因此**不可自动重试**：
+	// 重试一次还是同样的会话问题，只会让用户多等一轮。
+	if IsRetryableCode(downloadErr.Code) {
+		t.Errorf("站点声明的码 %q 不应被判为可自动重试", downloadErr.Code)
+	}
+}

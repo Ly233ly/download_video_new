@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/Ly233ly/download_video_new/internal/media"
 	"github.com/Ly233ly/download_video_new/internal/platform"
 	"github.com/Ly233ly/download_video_new/internal/store"
 )
@@ -57,6 +59,12 @@ type DownloadProgress struct {
 	Phase string
 	// PhaseDetail 是可直接展示的短文案，不得含路径、URL 或秘密（[03 §2.1]）。
 	PhaseDetail string
+	// TimeRatio 是**按时长口径**的进度（0..1），0 表示这次没有这个口径。
+	//
+	// 它存在的理由只有一个：P2（清单下载）的进度按时长算，而它的
+	// `total_bytes` 通常是 NULL（[05 §4.6.3]）——只靠 DownloadedBytes/TotalBytes
+	// 算不出百分比。**两种口径不得混算**，所以它单独一个字段。
+	TimeRatio float64
 }
 
 // DownloadResult 是一次成功执行的结果。
@@ -545,8 +553,9 @@ func (s *Service) runPlan(ctx context.Context, plan store.Plan) {
 		}
 	}()
 
-	// queued → running。守卫失败说明状态已经变了（用户停止、记录被删），本轮什么都不做。
-	if err := s.store.MarkPlanRunning(ctx, plan.ID, store.PlanPhaseDownloading); err != nil {
+	// queued → running，并写入本次实际执行的路径（[05 §4.0] 第一步按提示执行，此后才可能降级）。
+	// 守卫失败说明状态已经变了（用户停止、记录被删），本轮什么都不做。
+	if err := s.store.MarkPlanRunning(ctx, plan.ID, store.PlanPhaseDownloading, plan.MediaKind); err != nil {
 		if !errors.Is(err, store.ErrPlanStateChanged) && !errors.Is(err, store.ErrPlanNotFound) {
 			slog.Error("置运行状态失败", "component", "service", "event", "mark_running_failed",
 				"plan_id", plan.ID, "err", err)
@@ -598,24 +607,9 @@ func (s *Service) runPlan(ctx context.Context, plan store.Plan) {
 		return
 	}
 
-	req := DownloadRequest{
-		PlanID:          plan.ID,
-		MediaURL:        source.mediaURL,
-		Headers:         source.headers,
-		MediaKind:       plan.MediaKind,
-		OutputName:      plan.OutputName,
-		OutputContainer: plan.OutputContainer,
-		MergeMode:       plan.MergeMode,
-		QualityLabel:    plan.QualityLabel,
-		StreamPlan:      decodeStreamPlan(plan.StreamPlan),
-		TempDir:         dirs.Temp,
-		OutputDir:       dirs.Completed,
-		KnownTotalBytes: knownTotalBytes(plan.TotalBytes),
-	}
-
-	result, runErr := s.plan.runner.Run(planCtx, req, func(progress DownloadProgress) {
-		s.onProgress(planCtx, plan, progress)
-	})
+	// 路径自动路由（[05 §4.0]）：先按提示执行；引擎在还没写入任何字节时发现提示
+	// 不成立，会回报改路信号，executePlan 据此按 §4.0 第二步改一次路。
+	result, runErr := s.executePlan(planCtx, writeCtx, plan, source, dirs)
 
 	if runErr != nil {
 		s.handleFailure(writeCtx, plan, runErr)
@@ -648,6 +642,106 @@ func (s *Service) runPlan(ctx context.Context, plan store.Plan) {
 	// 完成后不再需要地址与会话凭据：文件已经交付，秘密没有继续驻留内存的理由（[03 §6]）。
 	s.plan.forgetSource(plan.ID)
 	s.publishPlanByID(writeCtx, plan.ID)
+}
+
+// executePlan 执行一次计划，并在 [05 §4.0] 允许时改一次路。
+//
+// 改路只可能发生在"引擎还没有写入任何字节"的时候：引擎在那种情况下回报
+// `*media.RouteMismatch`，本函数据此改写媒体地址与提示路径，然后再跑一次。
+// **只降一次**——§4.0 明令禁止链式降级，否则"这次为什么变慢了"永远查不清。
+func (s *Service) executePlan(
+	planCtx context.Context, writeCtx context.Context, plan store.Plan,
+	source planSource, dirs platform.OutputDirs,
+) (DownloadResult, error) {
+	resolved := plan.MediaKind
+	mediaURL := source.mediaURL
+	streamPlan := source.tracks
+	if len(streamPlan) == 0 {
+		// 内存里没有轨道地址（进程重启过）：落库投影里**没有地址**（[03 §2.1.1]），
+		// 因此取不回 P3 的两条轨——[05 §9] 允许这种计划按"还能重新解析的路径"重试。
+		streamPlan = decodeStreamPlan(plan.StreamPlan)
+	}
+
+	fellBack := false
+	for {
+		req := DownloadRequest{
+			PlanID:          plan.ID,
+			MediaURL:        mediaURL,
+			Headers:         source.headers,
+			MediaKind:       resolved,
+			OutputName:      plan.OutputName,
+			OutputContainer: plan.OutputContainer,
+			MergeMode:       plan.MergeMode,
+			QualityLabel:    plan.QualityLabel,
+			StreamPlan:      streamPlan,
+			TempDir:         dirs.Temp,
+			OutputDir:       dirs.Completed,
+			KnownTotalBytes: knownTotalBytes(plan.TotalBytes),
+		}
+
+		result, runErr := s.plan.runner.Run(planCtx, req, func(progress DownloadProgress) {
+			s.onProgress(planCtx, plan, progress)
+		})
+		if runErr == nil || fellBack {
+			return result, runErr
+		}
+
+		next, address, ok := fallbackFor(resolved, runErr, plan.SourceURL)
+		if !ok {
+			return result, runErr
+		}
+
+		// 改路必须让用户看得见（B-316），但**不增加 attempt_count**（B-315）：
+		// 它发生在同一次执行内，用户看到的仍是"第一次尝试"。
+		if err := s.store.UpdatePlanResolvedKind(writeCtx, plan.ID, next); err != nil {
+			// 状态已经变了（用户点了停止、记录被删）：不再改路，按原样上报这次的结果。
+			return result, runErr
+		}
+		slog.Info("下载路径改道", "component", "service", "event", "route_fallback",
+			"plan_id", plan.ID, "hint", resolved, "actual", next)
+		resolved = next
+		fellBack = true
+		if strings.TrimSpace(address) != "" {
+			mediaURL = address
+		}
+		// 换路后原来的轨道选择作废：清单与页面解析各自会给出新的轨道。
+		streamPlan = nil
+		s.publishPlanByID(writeCtx, plan.ID)
+	}
+}
+
+// fallbackFor 按 [05 §4.0] 第二步判断这次能不能改路，能就给出新路径与新地址。
+//
+// 只有三种情形可以改：提示是直链却拿到清单、提示是直链却拿到网页、提示是清单却
+// 解析不出来。其余一律不改——下载中断、网络错误与超时属 [05 §8] 的重试；
+// 字节或校验失败说明这条路本身能走通；视频号与浏览器模式没有备胎。
+//
+// "已经写入任何字节"不会走到这里：引擎在那种情况下根本不回报改路信号。
+func fallbackFor(hint string, runErr error, pageURL string) (next string, address string, ok bool) {
+	var mismatch *media.RouteMismatch
+	if !errors.As(runErr, &mismatch) {
+		return "", "", false
+	}
+	if hint != store.PlanMediaDirect && hint != store.PlanMediaHLS && hint != store.PlanMediaDASH {
+		return "", "", false
+	}
+	switch mismatch.Actual {
+	case media.KindHLS, media.KindDASH:
+		if hint != store.PlanMediaDirect {
+			// 一种清单换成另一种清单不属 §4.0 的三种情形。
+			return "", "", false
+		}
+		// 表格第 1 行：用**该清单的地址**（发生过同源重定向时是重定向后的地址）。
+		return string(mismatch.Actual), mismatch.Address, true
+	case media.KindPage:
+		// 表格第 2、3 行：改用**页面地址**重新解析；页面地址不可用时不许降。
+		if strings.TrimSpace(pageURL) == "" {
+			return "", "", false
+		}
+		return store.PlanMediaPage, pageURL, true
+	default:
+		return "", "", false
+	}
 }
 
 // handleFailure 按 [05 §8] 决定重试还是失败。
@@ -707,8 +801,18 @@ func (s *Service) onProgress(ctx context.Context, plan store.Plan, progress Down
 
 	if write {
 		phase := normalizeProgressPhase(progress.Phase)
+		// [05 §4.6.3]：清单下载（P2）的进度是**时长口径**，而它的 total_bytes 通常是
+		// NULL——靠字节算不出百分比，所以把比例单独交给 store（两种口径不得混算）。
+		var ratio *float64
+		if progress.TimeRatio > 0 {
+			value := progress.TimeRatio
+			if value > 1 {
+				value = 1
+			}
+			ratio = &value
+		}
 		if err := s.store.UpdateProgress(ctx, plan.ID, progress.DownloadedBytes,
-			progress.TotalBytes, phase, progress.PhaseDetail); err != nil {
+			progress.TotalBytes, ratio, phase, progress.PhaseDetail); err != nil {
 			// 状态守卫失败（已取消、已删除）不是错误：本计划已经停下，进度自然作废。
 			if !errors.Is(err, store.ErrPlanStateChanged) && !errors.Is(err, store.ErrPlanNotFound) {
 				slog.Warn("写入进度失败", "component", "service", "event", "progress_write_failed",

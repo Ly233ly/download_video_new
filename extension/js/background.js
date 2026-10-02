@@ -843,6 +843,38 @@ function save(tabId) {
 }
 
 /**
+ * 站点适配器声明（14 §5 / §5.3）。
+ *
+ * 内容脚本读不到扩展包内的文件（manifest.json 里没有、也不该为这个数据文件加上
+ * `web_accessible_resources`），所以声明由这里读一次并缓存，再经既有消息通道按需下发。
+ * 读不到 / 解析失败时退化为"没有适配器"的通用行为，只 console.warn 一次——
+ * **不得**让候选发现整体失效。
+ */
+let siteAdaptersPromise = null;
+
+function loadSiteAdapters() {
+    if (!siteAdaptersPromise) {
+        siteAdaptersPromise = fetch(chrome.runtime.getURL("site-adapters.json"), { cache: "no-store" })
+            .then(response => {
+                if (!response.ok) throw new Error("HTTP " + response.status);
+                return response.text();
+            })
+            .then(text => {
+                const parsed = JSON.parse(text);
+                return Array.isArray(parsed && parsed.adapters) ? parsed.adapters : [];
+            })
+            .catch(error => {
+                console.warn("[留底] 站点适配器声明不可用，退化为通用发现行为：", (error && error.message) || error);
+                return [];
+            });
+    }
+    return siteAdaptersPromise;
+}
+
+// 启动时预热一次：内容脚本在页面一开始就会问，提前读好可以少等一轮。
+loadSiteAdapters();
+
+/**
  * 监听 扩展 message 事件
  */
 chrome.runtime.onMessage.addListener(function (Message, sender, sendResponse) {
@@ -877,6 +909,16 @@ chrome.runtime.onMessage.addListener(function (Message, sender, sendResponse) {
     }
     if (Message.Message == "notifyPageLocationChanged" && sender?.tab?.id) {
         sendResponse(handleTabLocationChange(sender.tab.id, Message.url, "content"));
+        return true;
+    }
+    // 站点适配器声明下发（14 §5.3）。放在下面那道初始化缓存门**之前**：声明与那些
+    // 缓存无关，内容脚本在页面一开始就会问，不该被初始化时序挡住。
+    if (Message.Message == "getSiteAdapters") {
+        loadSiteAdapters().then(adapters => {
+            sendResponse(adapters.length
+                ? { ok: true, adapters }
+                : { ok: false, reason: "unavailable", adapters: [] });
+        });
         return true;
     }
     if (!G.initLocalComplete || !G.initSyncComplete) {

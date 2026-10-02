@@ -29,7 +29,8 @@ type workDirs struct {
 // 否则后续的"清理本次产物"就可能删到计划目录之外（[05 §1]：
 // 无法证明归属的文件永不删除）。
 func resolveDirs(req Request) (workDirs, error) {
-	if strings.TrimSpace(req.URL) == "" {
+	// P3 的地址在每条轨上（[Request.Tracks]），所以"没有 URL"不一定是缺地址。
+	if strings.TrimSpace(req.URL) == "" && len(req.Tracks) == 0 {
 		return workDirs{}, ErrorOf(CodeDownloadFailed, errors.New("缺少媒体地址"))
 	}
 	if strings.TrimSpace(req.TempDir) == "" || strings.TrimSpace(req.OutputDir) == "" {

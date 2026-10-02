@@ -11,10 +11,12 @@
 | 站点 | ID | 层 | 定制原因 | 最后核对 | 文档 |
 | --- | --- | --- | --- | --- | --- |
 | 通用兜底 | `generic` | L0 | 无匹配时生效，不针对任何站点 | — | — |
-| 抖音 | `douyin` | L2 | 需从多个播放器中选主播放器；需放宽通用路径「必须有 blob 源」的约束 | **尚未核对** | [douyin](douyin/README.md) |
+| 抖音 | `douyin` | L1 | 需从多个播放器中选主播放器（`primarySelection: current-player`）；需放宽通用路径「必须有 blob 源」的约束；ID 有路径/查询参数/类名三种来源 | **尚未核对** | [douyin](douyin/README.md) |
 | 微信视频号 | `wechat-channels` | L2 | 需代理捕获与专用解密；媒体 CDN 必须绕过代理 | **尚未移植** | [docs/06-WECHAT.md](../docs/06-WECHAT.md) |
 
 「最后核对」指**按真实页面人工验证过**的时间。旧实现还原出来的适配器一律为「尚未核对」，因为旧行为不等于新架构下已验证的行为。
+
+层次按 **A-101** 从严判定：能用声明表达的**禁止**写 L2。抖音原先按旧实现登记为 L2，核对后确认它需要的每一项都能声明，因此改为 **L1**（[14 §10](../docs/14-SITE-ADAPTERS.md)），其行为由扩展侧的通用声明式引擎执行（`extension/js/eagle-bridge-candidate-logic.js` 里的 `adapter*` 函数），离线测试在 `tests/js/test_adapter_douyin.js`。
 
 ---
 

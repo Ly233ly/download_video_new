@@ -185,7 +185,7 @@ func TestMarkPlanRunning_OnlyFromQueued(t *testing.T) {
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
 
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("queued → running 应当成功: %v", err)
 	}
 	got := mustGet(t, db, "p1")
@@ -194,7 +194,7 @@ func TestMarkPlanRunning_OnlyFromQueued(t *testing.T) {
 	}
 
 	// 再次 running 不合法：running → running 不在 [05 §2.1] 的转换表里。
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); !errors.Is(err, ErrPlanStateChanged) {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); !errors.Is(err, ErrPlanStateChanged) {
 		t.Errorf("重复置 running 返回 %v，期望 ErrPlanStateChanged", err)
 	}
 }
@@ -203,16 +203,120 @@ func TestMarkPlanRunning_RejectsInvalidPhase(t *testing.T) {
 	db := openPlanTestDB(t)
 	mustInsert(t, db, samplePlan("p1"))
 
-	if err := db.MarkPlanRunning(context.Background(), "p1", PlanPhaseNone); err == nil {
+	if err := db.MarkPlanRunning(context.Background(), "p1", PlanPhaseNone, PlanMediaDirect); err == nil {
 		t.Fatal("空 phase 被接受——[05 §2.2] 要求 running 时 phase 必须有值")
 	}
 }
 
 func TestMarkPlanRunning_NotFound(t *testing.T) {
 	db := openPlanTestDB(t)
-	err := db.MarkPlanRunning(context.Background(), "missing", PlanPhaseDownloading)
+	err := db.MarkPlanRunning(context.Background(), "missing", PlanPhaseDownloading, PlanMediaDirect)
 	if !errors.Is(err, ErrPlanNotFound) {
 		t.Errorf("返回 %v，期望 ErrPlanNotFound", err)
+	}
+}
+
+// [05 §4.0] 第一步：开始执行时路径一定是已知的——不允许出现 running 却不知道走哪条路的记录。
+func TestMarkPlanRunning_WritesResolvedKind(t *testing.T) {
+	db := openPlanTestDB(t)
+	ctx := context.Background()
+	mustInsert(t, db, samplePlan("p1"))
+
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaPage); err != nil {
+		t.Fatalf("进入 running 失败: %v", err)
+	}
+	got := mustGet(t, db, "p1")
+	if got.ResolvedKind == nil || *got.ResolvedKind != PlanMediaPage {
+		t.Fatalf("resolved_kind = %v，期望 %q", got.ResolvedKind, PlanMediaPage)
+	}
+}
+
+func TestMarkPlanRunning_RejectsInvalidResolvedKind(t *testing.T) {
+	db := openPlanTestDB(t)
+	mustInsert(t, db, samplePlan("p1"))
+
+	if err := db.MarkPlanRunning(context.Background(), "p1", PlanPhaseDownloading, "bogus"); err == nil {
+		t.Fatal("非法 resolved_kind 被接受")
+	}
+}
+
+// 刚创建、还没执行过的计划没有"实际路径"（[03 §2.1] 用 NULL 表示尚未确定）。
+func TestMarkPlanRunning_LeavesResolvedKindUnset(t *testing.T) {
+	db := openPlanTestDB(t)
+
+	// 存量行的 resolved_kind 是 NULL：这里用 InsertPlan 写 nil 再读回来。
+	mustInsert(t, db, samplePlan("p1"))
+	got := mustGet(t, db, "p1")
+	if got.ResolvedKind != nil {
+		t.Errorf("新建计划的 resolved_kind = %q，期望 NULL", *got.ResolvedKind)
+	}
+}
+
+// 降级要改写实际路径（[05 §4.0]），所以 resolved_kind 要能单独更新——但**只在 running 期间**：
+// 终态记录不得被事后篡改（否则 B-316 的可见性就没有意义了）。
+func TestUpdatePlanResolvedKind_OnlyWhileRunning(t *testing.T) {
+	db := openPlanTestDB(t)
+	ctx := context.Background()
+	mustInsert(t, db, samplePlan("p1"))
+
+	if err := db.UpdatePlanResolvedKind(ctx, "p1", PlanMediaPage); !errors.Is(err, ErrPlanStateChanged) {
+		t.Fatalf("queued 阶段改写返回 %v，期望 ErrPlanStateChanged", err)
+	}
+
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
+		t.Fatalf("进入 running 失败: %v", err)
+	}
+	if err := db.UpdatePlanResolvedKind(ctx, "p1", PlanMediaPage); err != nil {
+		t.Fatalf("running 阶段改写失败: %v", err)
+	}
+	got := mustGet(t, db, "p1")
+	if got.ResolvedKind == nil || *got.ResolvedKind != PlanMediaPage {
+		t.Fatalf("resolved_kind = %v，期望 %q", got.ResolvedKind, PlanMediaPage)
+	}
+	if err := db.UpdatePlanResolvedKind(ctx, "p1", "bogus"); err == nil {
+		t.Error("非法 resolved_kind 被接受")
+	}
+}
+
+// [05 §4.0] 末段：重启后的处置以**实际走过的路**为准，不是当初的提示。
+func TestRecoverInterrupted_UsesResolvedKind(t *testing.T) {
+	db := openPlanTestDB(t)
+	ctx := context.Background()
+	mustInsert(t, db, samplePlan("p1"))
+
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaPage); err != nil {
+		t.Fatalf("进入 running 失败: %v", err)
+	}
+
+	report, err := db.RecoverInterrupted(ctx, 2_000.0)
+	if err != nil {
+		t.Fatalf("RecoverInterrupted 失败: %v", err)
+	}
+	if len(report.RequeuedIDs) != 1 || report.RequeuedIDs[0] != "p1" {
+		t.Fatalf("requeued = %v，期望 [p1]（页面解析可从 source_url 重建上下文）", report.RequeuedIDs)
+	}
+}
+
+func TestContextRebuildable_PrefersResolvedKind(t *testing.T) {
+	resolved := PlanMediaPage
+	cases := []struct {
+		name      string
+		mediaKind string
+		resolved  *string
+		source    string
+		want      bool
+	}{
+		{"直链提示且未执行过", PlanMediaDirect, nil, "https://example.com/a", true},
+		{"实际降级到页面解析", PlanMediaDirect, &resolved, "https://example.com/a", true},
+		{"视频号缺会话", PlanMediaWechat, nil, "https://example.com/a", false},
+		{"没有来源地址", PlanMediaDirect, &resolved, "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := contextRebuildable(tc.mediaKind, tc.resolved, tc.source); got != tc.want {
+				t.Errorf("contextRebuildable = %v，期望 %v", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -222,7 +326,7 @@ func TestMarkPlanCompleted_DoesNotOverwriteCanceled(t *testing.T) {
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
 
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	// 用户在 validating 阶段点了停止。
@@ -250,7 +354,7 @@ func TestMarkPlanFailed_DoesNotOverwriteCanceled(t *testing.T) {
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
 
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	if err := db.MarkPlanCanceled(ctx, "p1"); err != nil {
@@ -269,7 +373,7 @@ func TestMarkPlanCanceled_DoesNotTouchCompleted(t *testing.T) {
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
 
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	if err := db.MarkPlanCompleted(ctx, "p1", `C:\out\video.mp4`, 10, nil); err != nil {
@@ -287,7 +391,7 @@ func TestMarkPlanFailed_RequiresErrorCode(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	if err := db.MarkPlanFailed(ctx, "p1", "", "消息"); err == nil {
@@ -299,7 +403,7 @@ func TestMarkPlanFailed_TruncatesLongMessage(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	long := strings.Repeat("错", MaxErrorMessageLen+50)
@@ -317,7 +421,7 @@ func TestMarkPlanQueuedForRetry_PersistsAttemptState(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
@@ -345,7 +449,7 @@ func TestMarkPlanQueuedForRetry_RejectsBadArguments(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	if err := db.MarkPlanQueuedForRetry(ctx, "p1", -1, 1); err == nil {
@@ -368,7 +472,7 @@ func TestMarkPlanCompleted_WritesPathWithStatus(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
@@ -399,7 +503,7 @@ func TestMarkPlanCompleted_RejectsEmptyPath(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	if err := db.MarkPlanCompleted(ctx, "p1", "   ", 1, nil); err == nil {
@@ -417,7 +521,7 @@ func TestMarkPlanCompleted_RollsBackWhenPathMissing(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseValidating, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
@@ -449,11 +553,11 @@ func TestUpdateProgress_KeepsZeroWhenTotalUnknown(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
-	if err := db.UpdateProgress(ctx, "p1", 12345, nil, PlanPhaseDownloading, "正在下载"); err != nil {
+	if err := db.UpdateProgress(ctx, "p1", 12345, nil, nil, PlanPhaseDownloading, "正在下载"); err != nil {
 		t.Fatalf("UpdateProgress 失败: %v", err)
 	}
 
@@ -473,13 +577,13 @@ func TestUpdateProgress_CapsBelowFullWhileRunning(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
 	total := int64(1000)
 	// 服务端声明的总长度偏小，已下载超过它。
-	if err := db.UpdateProgress(ctx, "p1", 1200, &total, PlanPhaseDownloading, "正在下载"); err != nil {
+	if err := db.UpdateProgress(ctx, "p1", 1200, &total, nil, PlanPhaseDownloading, "正在下载"); err != nil {
 		t.Fatalf("UpdateProgress 失败: %v", err)
 	}
 
@@ -496,7 +600,7 @@ func TestUpdateProgress_RejectsPathOrURLInDetail(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
@@ -506,7 +610,7 @@ func TestUpdateProgress_RejectsPathOrURLInDetail(t *testing.T) {
 		`写入 C:\Users\me\Downloads\a.mp4`,
 		"正在下载 /tmp/a.mp4",
 	} {
-		if err := db.UpdateProgress(ctx, "p1", 1, &total, PlanPhaseDownloading, detail); err == nil {
+		if err := db.UpdateProgress(ctx, "p1", 1, &total, nil, PlanPhaseDownloading, detail); err == nil {
 			t.Errorf("phase_detail = %q 被接受，应当拒绝（[03 §2.1]）", detail)
 		}
 	}
@@ -520,7 +624,7 @@ func TestUpdateProgress_IgnoredAfterCancel(t *testing.T) {
 	db := openPlanTestDB(t)
 	ctx := context.Background()
 	mustInsert(t, db, samplePlan("p1"))
-	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	if err := db.MarkPlanCanceled(ctx, "p1"); err != nil {
@@ -528,7 +632,7 @@ func TestUpdateProgress_IgnoredAfterCancel(t *testing.T) {
 	}
 
 	total := int64(100)
-	err := db.UpdateProgress(ctx, "p1", 50, &total, PlanPhaseDownloading, "正在下载")
+	err := db.UpdateProgress(ctx, "p1", 50, &total, nil, PlanPhaseDownloading, "正在下载")
 	if !errors.Is(err, ErrPlanStateChanged) {
 		t.Fatalf("取消后写进度返回 %v，期望 ErrPlanStateChanged", err)
 	}
@@ -606,7 +710,7 @@ func TestListDuePlans_ReturnsOnlyDueQueued(t *testing.T) {
 
 	running := samplePlan("p-running")
 	mustInsert(t, db, running)
-	if err := db.MarkPlanRunning(ctx, "p-running", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p-running", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
@@ -721,7 +825,7 @@ func TestRecoverInterrupted_RequeuesRebuildableRunning(t *testing.T) {
 	ctx := context.Background()
 
 	mustInsert(t, db, samplePlan("p-direct"))
-	if err := db.MarkPlanRunning(ctx, "p-direct", PlanPhaseDownloading); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p-direct", PlanPhaseDownloading, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 
@@ -762,7 +866,8 @@ func TestRecoverInterrupted_FailsUnrecoverableContext(t *testing.T) {
 			p.MediaKind = tc.mediaKind
 			p.SourceURL = tc.sourceURL
 			mustInsert(t, db, p)
-			if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading); err != nil {
+			// 实际路径与提示一致（这些路径没有备胎，不会降级）。
+			if err := db.MarkPlanRunning(ctx, "p1", PlanPhaseDownloading, tc.mediaKind); err != nil {
 				t.Fatalf("进入 running 失败: %v", err)
 			}
 
@@ -832,7 +937,7 @@ func TestRecoverInterrupted_LeavesTerminalRecordsAlone(t *testing.T) {
 	ctx := context.Background()
 
 	mustInsert(t, db, samplePlan("p-done"))
-	if err := db.MarkPlanRunning(ctx, "p-done", PlanPhaseValidating); err != nil {
+	if err := db.MarkPlanRunning(ctx, "p-done", PlanPhaseValidating, PlanMediaDirect); err != nil {
 		t.Fatalf("进入 running 失败: %v", err)
 	}
 	if err := db.MarkPlanCompleted(ctx, "p-done", `C:\out\video.mp4`, 10, nil); err != nil {

@@ -1,0 +1,20 @@
+{
+  "note": "抖音错误映射的离线夹具（[14 §8] 契约 A-112）。上游原文取自 yt-dlp 的错误格式，不含地址、Cookie 或抓包原文（契约 A-111）。",
+  "cases": [
+    {
+      "upstream": "ERROR: [Douyin] Unsupported URL: https://www.douyin.com/user/someone",
+      "code": "douyin_page_unsupported",
+      "why": "errors[0] 命中"
+    },
+    {
+      "upstream": "ERROR: [Douyin] Fresh cookies (not necessarily logged in) are needed",
+      "code": "douyin_session_expired",
+      "why": "errors[1] 命中"
+    },
+    {
+      "upstream": "ERROR: unable to download video data: HTTP Error 403",
+      "code": "",
+      "why": "没有声明的错误片段：不得翻译（保持原样交给通用错误处置）"
+    }
+  ]
+}

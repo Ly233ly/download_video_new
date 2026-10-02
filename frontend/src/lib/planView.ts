@@ -4,7 +4,7 @@
  * 这里只做"把后端投影过来的字段翻译成界面文案"，**不做业务判断**：
  * 完成与否由 `plan.status` 决定（B-313），界面不自行推断。
  */
-import type { PlanPhase, PlanStatus, PlanView } from '../bindings';
+import type { MediaKind, PlanPhase, PlanStatus, PlanView } from '../bindings';
 
 /** 状态中文标签（[09 §3.1] 行信息）。措辞与设计稿的徽标一致。 */
 export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
@@ -138,6 +138,47 @@ function attemptText(attemptCount: number): string {
 /** 行副标题：来源主机 · 质量标签 · 容器（设计稿 `.meta`）。 */
 export function rowMeta(plan: PlanView): string {
   return joinParts([sourceHost(plan.sourceUrl), plan.qualityLabel, plan.outputContainer]);
+}
+
+/**
+ * 下载路径的中文名（[05 §4] 的 P1–P6）。
+ *
+ * 完整路径属于 [09 §3.1] 的「详情」展开，它与固定行高冲突、排在阶段 6（[16 §4.5]）；
+ * 在那之前界面只在**发生改道时**用这个表（见 `routeNotice`）。
+ */
+export const MEDIA_KIND_LABEL: Record<MediaKind, string> = {
+  direct: '直链',
+  hls: 'HLS 清单',
+  dash: 'DASH 清单',
+  page: '页面解析',
+  wechat: '视频号',
+  browser: '浏览器中转',
+};
+
+/**
+ * 路径中文名。**不认识的取值原样返回**：后端加了新路径而界面还没跟上时，
+ * 显示 `wechat2` 也比显示「未知」有用。
+ */
+export function mediaKindLabel(kind: string): string {
+  return (MEDIA_KIND_LABEL as Record<string, string | undefined>)[kind] ?? kind;
+}
+
+/**
+ * 自动改道提示（B-316：实际路径必须对用户可见，**不得静默发生**）。
+ *
+ * 空串 = 没发生改道。`resolvedKind` 为 `null` 表示**还没开始执行**（[03 §2.1]），
+ * 那不是改道，也不该提示。
+ *
+ * 落地位置：完整路径要等阶段 6 的详情展开；在那之前改道必须有个看得见的地方，
+ * 所以并进状态说明行（不改变固定行高）。
+ */
+export function routeNotice(plan: Pick<PlanView, 'mediaKind' | 'resolvedKind'>): string {
+  const actual = plan.resolvedKind;
+  // `!actual` 同时挡住 null 与字段缺失两种"尚未执行"。
+  if (!actual || actual === plan.mediaKind) {
+    return '';
+  }
+  return `已自动改走${mediaKindLabel(actual)}（原判${mediaKindLabel(plan.mediaKind)}）`;
 }
 
 /**

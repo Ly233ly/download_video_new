@@ -1,0 +1,80 @@
+{
+  "generated": true,
+  "source": "adapters/",
+  "note": "本文件由 build/gen-site-adapters.ps1 生成，禁止手工编辑（[14 §4] 契约 A-105）。唯一事实源是 adapters/<id>/adapter.json。",
+  "adapters": [
+    {
+      "id": "douyin",
+      "name": "抖音",
+      "version": 1,
+      "updatedFor": null,
+      "match": {
+        "hosts": [
+          "douyin.com",
+          "*.douyin.com"
+        ],
+        "priority": 100
+      },
+      "identity": {
+        "urlRules": [
+          {
+            "path": "^/video/(\\d{10,30})/?$",
+            "id": "$1"
+          },
+          {
+            "query": "modal_id",
+            "pattern": "^\\d{10,30}$",
+            "id": "$0"
+          },
+          {
+            "pattern": "(?:^|[\\s/])video_(\\d{10,30})(?:[\\s/]|$)",
+            "id": "$1"
+          }
+        ],
+        "domSignals": [
+          "[data-aweme-id]",
+          "[data-video-id]",
+          "[class*=\"video_\"]"
+        ],
+        "canonical": "https://www.douyin.com/video/{id}",
+        "requireId": true
+      },
+      "capture": {
+        "containers": [
+          "[data-e2e=\"feed-item\"]",
+          "[data-e2e=\"feed-active-video\"]",
+          "[data-e2e=\"feed-video\"]",
+          "[class*=\"video_\"]"
+        ],
+        "primarySelection": "current-player",
+        "allowDirectStream": true,
+        "requireBlobSource": false
+      },
+      "title": {
+        "template": "{nickname} - {description}",
+        "fallback": "抖音视频 {id}"
+      }
+    },
+    {
+      "id": "generic",
+      "name": "通用",
+      "version": 1,
+      "updatedFor": null,
+      "match": {
+        "hosts": [
+          "*"
+        ],
+        "priority": 0
+      },
+      "identity": {
+        "requireId": false
+      },
+      "capture": {
+        "primarySelection": "all",
+        "allowDirectStream": false,
+        "requireBlobSource": true
+      },
+      "title": null
+    }
+  ]
+}

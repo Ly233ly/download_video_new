@@ -426,7 +426,7 @@ func TestOnProgress_ThrottlesWriteAndPushSeparately(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
-	if err := env.db.MarkPlanRunning(ctx, created.ID, store.PlanPhaseDownloading); err != nil {
+	if err := env.db.MarkPlanRunning(ctx, created.ID, store.PlanPhaseDownloading, store.PlanMediaDirect); err != nil {
 		t.Fatalf("置运行失败: %v", err)
 	}
 	plan := env.planRow(t, created.ID)
@@ -476,7 +476,7 @@ func TestOnProgress_DoesNotFakePercentWhenTotalUnknown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
-	if err := env.db.MarkPlanRunning(ctx, created.ID, store.PlanPhaseDownloading); err != nil {
+	if err := env.db.MarkPlanRunning(ctx, created.ID, store.PlanPhaseDownloading, store.PlanMediaDirect); err != nil {
 		t.Fatalf("置运行失败: %v", err)
 	}
 	plan := env.planRow(t, created.ID)
@@ -506,7 +506,7 @@ func TestStartPlans_RecoversInterruptedAndPublishes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
-	if err := env.db.MarkPlanRunning(ctx, direct.ID, store.PlanPhaseDownloading); err != nil {
+	if err := env.db.MarkPlanRunning(ctx, direct.ID, store.PlanPhaseDownloading, store.PlanMediaDirect); err != nil {
 		t.Fatalf("置运行失败: %v", err)
 	}
 
@@ -518,7 +518,7 @@ func TestStartPlans_RecoversInterruptedAndPublishes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
-	if err := env.db.MarkPlanRunning(ctx, wechat.ID, store.PlanPhaseDownloading); err != nil {
+	if err := env.db.MarkPlanRunning(ctx, wechat.ID, store.PlanPhaseDownloading, store.PlanMediaWechat); err != nil {
 		t.Fatalf("置运行失败: %v", err)
 	}
 

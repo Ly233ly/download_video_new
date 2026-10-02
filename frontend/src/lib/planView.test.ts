@@ -9,9 +9,11 @@ import {
   failureReason,
   formatBytes,
   isTerminal,
+  mediaKindLabel,
   phaseLabel,
   progressCaption,
   progressPercent,
+  routeNotice,
   rowMeta,
   showsProgressBar,
   sourceHost,
@@ -87,6 +89,30 @@ describe('计划视图映射', () => {
       expect(sourceHost('not a url')).toBe('');
       expect(sourceHost('')).toBe('');
       expect(sourceHost('https://example.com:8443/a')).toBe('example.com');
+    });
+
+    it('路径中文名不认识的取值原样返回', () => {
+      expect(mediaKindLabel('direct')).toBe('直链');
+      expect(mediaKindLabel('page')).toBe('页面解析');
+      expect(mediaKindLabel('wechat2')).toBe('wechat2');
+    });
+
+    it('没改道就没有提示（B-316 只在真的改道时才出现）', () => {
+      // 实际路径与提示一致
+      expect(routeNotice(makePlan({ id: 'a', mediaKind: 'hls', resolvedKind: 'hls' }))).toBe('');
+      // 还没开始执行：resolvedKind 是 null，不是改道（[03 §2.1]）
+      expect(routeNotice(makePlan({ id: 'a', status: 'queued', resolvedKind: null }))).toBe('');
+    });
+
+    it('改道后提示实际路径与原判，不静默发生（B-316）', () => {
+      // [05 §4.0] 第二步：提示直链、实际是清单
+      expect(routeNotice(makePlan({ id: 'a', mediaKind: 'direct', resolvedKind: 'hls' }))).toBe(
+        '已自动改走HLS 清单（原判直链）',
+      );
+      // 提示直链、实际走了页面解析
+      expect(routeNotice(makePlan({ id: 'a', mediaKind: 'direct', resolvedKind: 'page' }))).toBe(
+        '已自动改走页面解析（原判直链）',
+      );
     });
 
     it('进度说明含阶段、百分比与字节数', () => {

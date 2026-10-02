@@ -17,6 +17,8 @@ export function makePlan(over: Partial<PlanView> & { id: string }): PlanView {
     sourceUrl: 'https://example.com/video',
     sourceTitle: '来源标题',
     mediaKind: 'direct',
+    // 默认与提示一致（没发生降级）；要测降级的场景直接覆盖这个字段。
+    resolvedKind: 'direct',
     outputName: '输出名.mp4',
     outputContainer: 'mp4',
     mergeMode: 'single',

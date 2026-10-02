@@ -508,7 +508,8 @@ type Result<T> =
 | `id` | string | `id` | 计划 ID |
 | `sourceTitle` | string | `source_title` | 标题；可为空字符串 |
 | `sourceUrl` | string | `source_url` | 归一化后的页面地址（[03 §4.1](03-DATA.md)）；**只在展开后展示**（B-203），**不得**进入日志（B-303）与诊断导出（B-722） |
-| `mediaKind` | string | `media_kind` | 取值域见 [03 §3.3](03-DATA.md) |
+| `mediaKind` | string | `media_kind` | **调用方的路径提示**，不是命令；取值域见 [03 §3.3](03-DATA.md) |
+| `resolvedKind` | string \| null | `resolved_kind` | **实际执行的路径**（规则见 [05 §4.0](05-DOWNLOAD.md)）；`null` = 尚未确定。与 `mediaKind` 不同即说明发生了降级——界面据此显示实际路径（B-316） |
 | `outputName` | string | `output_name` | 经 [03 §4.4](03-DATA.md) 清洗后的输出名 |
 | `outputContainer` | string | `output_container` | 取值域见 [03 §3.3](03-DATA.md) |
 | `qualityLabel` | string | `quality_label` | 可读档位标签；**必须如实**——未经验证不得标为高清（B-714、B-723）；可为空字符串 |
@@ -539,13 +540,13 @@ type Result<T> =
 
 | 字段 | 类型 | 必填 | 说明与落点 |
 | --- | --- | --- | --- |
-| `mediaKind` | string | 是 | 取值域见 [03 §3.3](03-DATA.md) → `plans.media_kind`；**阶段 2 只接受 `direct`** |
+| `mediaKind` | string | 是 | **路径提示**，不是命令：实际路径由桌面端在执行时确定并落库到 `plans.resolved_kind`（[05 §4.0](05-DOWNLOAD.md)、B-316）；取值域见 [03 §3.3](03-DATA.md)。**阶段 2 只接受 `direct`**，阶段 3 起接受全部取值 |
 | `pageUrl` | string | 否 | 页面地址；按 [03 §4.1](03-DATA.md) 归一化后 → `plans.source_url`。**扩展创建时必须提供**（否则界面上没有来源可显示，B-203）；缺失时落库为空字符串 |
 | `pageTitle` | string | 否 | → `plans.source_title`；上限见 [03 §4.5](03-DATA.md) |
 | `outputName` | string | 是 | 服务端**必须**按 [03 §4.4](03-DATA.md) 再清洗一次（不信任调用方）→ `plans.output_name` |
 | `outputContainer` | string | 是 | 取值域见 [03 §3.3](03-DATA.md)；不支持 → `invalid_container`（[05 §3.2](05-DOWNLOAD.md)） |
-| `mergeMode` | string | 是 | 取值域见 [03 §3.3](03-DATA.md)；不支持 → `invalid_merge_mode`（[05 §3.2](05-DOWNLOAD.md)）；**阶段 2 必须为 `single`** |
-| `streams` | array | 是 | 轨道选择（[05 §3.1](05-DOWNLOAD.md) 的「轨道选择」）；元素见下表。**阶段 2 恰好一个 `main` 轨道** |
+| `mergeMode` | string | 是 | 取值域与语义见 [03 §3.3](03-DATA.md)；不支持 → `invalid_merge_mode`（[05 §3.2](05-DOWNLOAD.md)）；**阶段 2 必须为 `single`**，阶段 3 起接受全部取值（与路径的关系见 [05 §4.6](05-DOWNLOAD.md)） |
+| `streams` | array | 是 | 轨道选择（[05 §3.1](05-DOWNLOAD.md) 的「轨道选择」）；元素见下表。**阶段 2 恰好一个 `main` 轨道**；阶段 3 起按路径取值（[03 §2.1.1](03-DATA.md)、[05 §4.6](05-DOWNLOAD.md)） |
 | `qualityLabel` | string | 否 | 可读画质档位（[05 §3.1](05-DOWNLOAD.md) 的「画质档位」）→ `plans.quality_label`；无档位时为空字符串 |
 | `importToEagle` | bool | 否 | → `plans.import_to_eagle`；缺省 `false`（[05 §3.1](05-DOWNLOAD.md) 的默认 0） |
 | `deleteAfterImport` | bool | 否 | → `plans.delete_after_import`；缺省 `false`。`importToEagle = false` 或 Eagle 不可用时**必须**落库为 0（[05 §3.1](05-DOWNLOAD.md)、B-504） |

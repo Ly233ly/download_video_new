@@ -30,14 +30,18 @@ const (
 // **不投影 stream_plan**：它是内部轨道描述，界面用不到；更重要的是它贴近秘密边界，
 // 少一份外泄面就少一份风险（[03 §6]）。
 type PlanView struct {
-	ID              string `json:"id"`
-	SourceURL       string `json:"sourceUrl"`
-	SourceTitle     string `json:"sourceTitle"`
-	MediaKind       string `json:"mediaKind"`
-	OutputName      string `json:"outputName"`
-	OutputContainer string `json:"outputContainer"`
-	MergeMode       string `json:"mergeMode"`
-	QualityLabel    string `json:"qualityLabel"`
+	ID          string `json:"id"`
+	SourceURL   string `json:"sourceUrl"`
+	SourceTitle string `json:"sourceTitle"`
+	MediaKind   string `json:"mediaKind"`
+	// ResolvedKind 是**实际执行的路径**（B-316）。null = 尚未确定（还没开始执行）；
+	// 与 MediaKind 不同即说明发生了降级——界面据此显示「这次实际走的是哪条路」，
+	// 否则「为什么这次变慢了」无法解释（[04 §3.3.2]、[05 §4.0]）。
+	ResolvedKind    *string `json:"resolvedKind"`
+	OutputName      string  `json:"outputName"`
+	OutputContainer string  `json:"outputContainer"`
+	MergeMode       string  `json:"mergeMode"`
+	QualityLabel    string  `json:"qualityLabel"`
 
 	Status   string  `json:"status"`
 	Phase    string  `json:"phase"`
@@ -361,6 +365,7 @@ func (s *Service) planView(plan store.Plan) PlanView {
 		SourceURL:         plan.SourceURL,
 		SourceTitle:       plan.SourceTitle,
 		MediaKind:         plan.MediaKind,
+		ResolvedKind:      plan.ResolvedKind,
 		OutputName:        plan.OutputName,
 		OutputContainer:   plan.OutputContainer,
 		MergeMode:         plan.MergeMode,

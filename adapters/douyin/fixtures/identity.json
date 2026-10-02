@@ -1,0 +1,40 @@
+{
+  "note": "抖音身份规则的离线夹具（[14 §8] 契约 A-112：测试离线可跑）。地址一律用规范形式，不含签名参数、Cookie 或账号信息（契约 A-111）。",
+  "cases": [
+    {
+      "url": "https://www.douyin.com/video/7123456789012345678",
+      "id": "7123456789012345678",
+      "why": "路径规则命中"
+    },
+    {
+      "url": "https://www.douyin.com/video/7123456789012345678/?foo=bar",
+      "id": "7123456789012345678",
+      "why": "带查询串时路径规则照样命中"
+    },
+    {
+      "url": "https://www.douyin.com/user/someone?modal_id=7123456789012345678",
+      "id": "7123456789012345678",
+      "why": "在个人页点开弹层：查询参数规则命中"
+    },
+    {
+      "url": "https://www.douyin.com/user/someone?modal_id=not-a-number",
+      "id": "",
+      "why": "查询参数不满足模式：取不到 ID"
+    },
+    {
+      "url": "https://www.douyin.com/user/someone",
+      "id": "",
+      "why": "既没有路径 ID 也没有 modal_id：取不到 ID"
+    },
+    {
+      "url": "https://www.douyin.com/video/123",
+      "id": "",
+      "why": "位数不足（规则要求 10~30 位）"
+    },
+    {
+      "url": "https://www.douyin.com/video_7123456789012345678",
+      "id": "7123456789012345678",
+      "why": "文本规则（`video_<id>` 形态）：路径规则不命中时按声明顺序继续尝试"
+    }
+  ]
+}

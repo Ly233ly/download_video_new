@@ -729,7 +729,7 @@ func TestPlanRemove_RejectsRunningPlan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
-	if err := env.db.MarkPlanRunning(ctx, created.ID, store.PlanPhaseDownloading); err != nil {
+	if err := env.db.MarkPlanRunning(ctx, created.ID, store.PlanPhaseDownloading, store.PlanMediaDirect); err != nil {
 		t.Fatalf("置运行失败: %v", err)
 	}
 
@@ -1006,7 +1006,7 @@ func (e *planTestEnv) completePlanDirectly(t *testing.T, id string) {
 func (e *planTestEnv) completeWith(t *testing.T, id string, downloaded int64, total *int64) {
 	t.Helper()
 	ctx := context.Background()
-	if err := e.db.MarkPlanRunning(ctx, id, store.PlanPhaseValidating); err != nil {
+	if err := e.db.MarkPlanRunning(ctx, id, store.PlanPhaseValidating, store.PlanMediaDirect); err != nil {
 		t.Fatalf("置运行失败: %v", err)
 	}
 	if err := e.db.MarkPlanCompleted(ctx, id, `C:\已完成\video.mp4`, downloaded, total); err != nil {
@@ -1017,7 +1017,7 @@ func (e *planTestEnv) completeWith(t *testing.T, id string, downloaded int64, to
 func (e *planTestEnv) failPlanDirectly(t *testing.T, id, code string) {
 	t.Helper()
 	ctx := context.Background()
-	if err := e.db.MarkPlanRunning(ctx, id, store.PlanPhaseDownloading); err != nil {
+	if err := e.db.MarkPlanRunning(ctx, id, store.PlanPhaseDownloading, store.PlanMediaDirect); err != nil {
 		t.Fatalf("置运行失败: %v", err)
 	}
 	if err := e.db.MarkPlanFailed(ctx, id, code, MessageForCode(code)); err != nil {

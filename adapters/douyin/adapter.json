@@ -10,9 +10,10 @@
   "identity": {
     "urlRules": [
       { "path": "^/video/(\\d{10,30})/?$", "id": "$1" },
-      { "query": "modal_id", "pattern": "^\\d{10,30}$", "id": "$0" }
+      { "query": "modal_id", "pattern": "^\\d{10,30}$", "id": "$0" },
+      { "pattern": "(?:^|[\\s/])video_(\\d{10,30})(?:[\\s/]|$)", "id": "$1" }
     ],
-    "domSignals": ["[data-aweme-id]", "[data-video-id]"],
+    "domSignals": ["[data-aweme-id]", "[data-video-id]", "[class*=\"video_\"]"],
     "canonical": "https://www.douyin.com/video/{id}",
     "requireId": true
   },
@@ -47,6 +48,5 @@
       "code": "douyin_session_expired",
       "message": "抖音需要当前浏览器的新鲜会话，请刷新抖音页面后重试"
     }
-  ],
-  "codeReason": "需要读取实时播放状态，在页面多个 <video> 中选出主播放器，无法用声明表达。"
+  ]
 }

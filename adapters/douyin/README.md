@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | ID | `douyin` |
-| 层 | L2（含代码适配器） |
+| 层 | **L1（纯声明）**——`primarySelection`、`urlRules`、`title` 模板等已能表达全部行为，按 A-101 不得写 L2 |
 | 状态 | **待移植**——尚未按新架构核对 |
 | 声明 | [adapter.json](adapter.json) |
 
@@ -78,13 +78,14 @@
 3. 刷新页面后立即下载 → 不出现 `douyin_session_expired`。
 4. 点击"下载" → 桌面端完成下载，文件名与标题一致。
 
-### 离线夹具（待补）
+### 离线夹具
 
-| 夹具 | 用途 |
-| --- | --- |
-| `fixtures/feed-item.html` | 信息流页面结构，验证容器选择器与主播放器选取 |
-| `fixtures/signals-modal-id.json` | `modal_id` 形态的信号输入，验证 ID 提取 |
-| `fixtures/errors.json` | yt-dlp 错误原文 → 错误码映射 |
+| 夹具 | 用途 | 消费它的测试 |
+| --- | --- | --- |
+| `fixtures/identity.json` | 页面地址 → 视频 ID（路径规则、`modal_id` 查询规则、文本规则、取不到 ID 的负例） | `internal/adapter/adapter_test.go` 的 `TestResolveID_DouyinFixtures` |
+| `fixtures/errors.json` | yt-dlp 错误原文 → 错误码映射（含"未声明的原文不翻译"负例） | `internal/adapter/adapter_test.go` 的 `TestMapError_DouyinFixtures` |
+
+扩展侧（L1 的声明式行为）由 `tests/js/test_adapter_douyin.js` 覆盖：它用 `extension/js/eagle-bridge-candidate-logic.js` 的通用引擎加本目录的声明，跑匹配、ID、页面地址规范化、标题、主播放器选取与源约束八组断言；其中一组会扫描公共发现代码（剥掉注释后）确认**不含任何站点名**（A-102、`T-ADP-01`）。这些测试全部离线，不访问抖音。
 
 ---
 
@@ -93,3 +94,4 @@
 | 日期 | 变更 | 依据 |
 | --- | --- | --- |
 | 2026-09-27 | 建立适配器目录，从旧实现还原声明 | 旧项目 `chrome-extension/js/content-script.js`、`src/idm_eagle_bridge/media.py`；**未按新架构验证** |
+| 2026-10-02 | **层次由 L2 改为 L1**：`primarySelection: current-player` 就是选主播放器的声明式表达，按 A-101 不得写 L2；删除 `codeReason` 与 `extension.js`。补第三条 `identity.urlRules`（文本规则，覆盖旧实现里"从类名抽 ID"的形态），`identity.domSignals` 增加 `[class*="video_"]`。落地两个夹具与离线测试，并给扩展侧通用声明式引擎补上 `adapter*` 函数 | [14 §5.1](../docs/14-SITE-ADAPTERS.md)、§5.4、§10；契约 A-101/A-102/A-112/A-113 |

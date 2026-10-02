@@ -37,6 +37,12 @@ type planSource struct {
 	mediaURL string
 	// headers 是会话上下文（Cookie / Authorization 等），只用于本次下载（[05 §4.2] 的凭据边界）。
 	headers map[string]string
+	// tracks 是**分离轨道**的地址（P3，[05 §4.6.2]）。
+	//
+	// 与 mediaURL 同理只在内存：轨道地址常带一次性签名参数。落库的
+	// `stream_plan` 投影里没有地址（[03 §2.1.1]），重启后取不回它们——
+	// 这正是 [05 §9] 规定"重启后只有能重新解析的路径才继续调度"的原因。
+	tracks []StreamTrack
 }
 
 // StreamTrack 是 [03 §2.1] 的 stream_plan 元素：描述所选轨道与质量档位。
@@ -58,6 +64,11 @@ type StreamTrack struct {
 	// 新增字段一律可缺省、读方必须容忍缺省。阶段 2 只做直链，不填它们。
 	Index   int `json:"index,omitempty"`
 	Bitrate int `json:"bitrate,omitempty"`
+	// Bytes 是该轨**已声明的**字节数（[04 §3.3.3] 的 `streams[].bytes`）；0 表示未声明。
+	//
+	// **只在内存**：落库投影里没有它。P3 用它判断"已完整取回的轨不重下"
+	// （[05 §4.6.2]）——未声明就必须重下，因为"无法确认时重下"。
+	Bytes int64 `json:"-"`
 }
 
 // WechatContext 是视频号专用上下文（[05 §3.1]：会话上下文**仅内存**）。
@@ -212,6 +223,7 @@ func (s *Service) validateCreatePlan(ctx context.Context, req CreatePlanRequest)
 		source: planSource{
 			mediaURL: target.String(),
 			headers:  cloneHeaders(req.Headers),
+			tracks:   cloneTracks(req.Tracks),
 		},
 	}, nil
 }
@@ -617,6 +629,18 @@ func cloneHeaders(headers map[string]string) map[string]string {
 	for key, value := range headers {
 		cloned[key] = value
 	}
+	return cloned
+}
+
+// cloneTracks 复制轨道选择：调用方之后改原切片不得影响已创建的计划。
+//
+// 这里的 URL 与会话凭据同级敏感（B-722），所以是**复制**而不是共享底层数组。
+func cloneTracks(tracks []StreamTrack) []StreamTrack {
+	if len(tracks) == 0 {
+		return nil
+	}
+	cloned := make([]StreamTrack, len(tracks))
+	copy(cloned, tracks)
 	return cloned
 }
 

@@ -89,6 +89,59 @@ type Request struct {
 	TempDir    string // ...\临时\<plan_id>\
 	OutputDir  string // ...\已完成\
 	TotalBytes int64  // 0 表示「长度未知」，不是「长度为零」
+
+	// Kind 是调用方给的**路径提示**（[05 §3.1]、[03 §3.3] 的 `media_kind`）。
+	//
+	// **零值等于 `direct`**：这样阶段 2 已有的调用方与测试不用改动，
+	// 而"没给提示"与"提示是直链"在 [05 §4.0] 第一步里本来就等价。
+	// 它只是提示：真实形态由 [directHintMismatch] 在连上之后核实。
+	Kind Kind
+
+	// Tracks 是**分离的音视频轨**（[05 §4.6.2] 的 P3）。
+	//
+	// 长度 ≥ 2 即按 P3 处理：每条轨按 P1 取字节，再 `streamcopy` 合并成一条
+	// （[05 §4.6] 的判定表把"输入形态"排在提示之前，所以这条判定不消耗降级机会）。
+	// 此时 [Request.URL] 允许为空——地址在每条轨上。
+	Tracks []Track
+
+	// QualityLabel 是创建计划时声明的画质档位（[03 §2.1] 的 `quality_label`）。
+	//
+	// 清单里选流**只看它**（[05 §5.3]："选择依据只来自创建入参"）；
+	// 为空表示用户没指定，按"分辨率最高、并列取带宽最高"这条确定规则选。
+	QualityLabel string
+
+	// sniffDisabled 关闭"提示不成立就改路"的核实（**包内使用**）。
+	//
+	// 只有 P3 取单条轨时用得上：那时地址是另一条路径的**产物**，
+	// 不是在替调用方的提示做验证，所以不该在轨道上再触发一次改路。
+	sniffDisabled bool
+}
+
+// Track 是 P3 的一条分离轨道。
+//
+// 与 [Request] 一样：URL 与请求头**只在内存**（B-303）。
+type Track struct {
+	Kind       string // video / audio（[03 §2.1.1] 的 stream_plan.track）
+	URL        string
+	Headers    http.Header
+	TotalBytes int64 // 0 = 未声明字节数（[04 §3.3.3] 的 bytes 可省略）
+}
+
+// kind 返回本次执行的路径提示；零值按 direct 处理（见 [Request.Kind]）。
+func (r Request) kind() Kind {
+	if r.Kind == "" {
+		return KindDirect
+	}
+	return r.Kind
+}
+
+// wantsDirectSniff 判断这次执行要不要在连上之后核实"提示是不是 direct"。
+//
+// 只有提示是 direct（或没给提示）时才核实：别的提示本来就该走别的路径
+// （[05 §4.0] 第一步），而 P3 的每条轨是一次普通取字节，
+// 不该在轨道上再触发一次改路。
+func (r Request) wantsDirectSniff() bool {
+	return !r.sniffDisabled && r.kind() == KindDirect
 }
 
 // Progress 是一次进度快照。
@@ -103,6 +156,15 @@ type Progress struct {
 	// Total 是**预期总字节**；0 = 未知，不是"长度为 0"。
 	Total int64
 	Phase string // downloading / merging / validating
+
+	// TimeRatio 是**按时长口径**的完成比例（0..1）；0 表示"这次没有这个口径"。
+	//
+	// 存在的唯一理由：[05 §4.6.3] 规定 P2（清单）的进度以**媒体时长**为口径，
+	// 而它的 `total_bytes` 通常是 `NULL`——不得用估算值填充，于是调用方
+	// 拿 `Downloaded / Total` 算不出百分比。那种情况下改用这个值。
+	//
+	// 其余路径一律留 0：字节口径与时长口径**不得混算**（[05 §4.6.3]）。
+	TimeRatio float64
 }
 
 // Result 是一次成功下载的产出。
@@ -112,12 +174,39 @@ type Result struct {
 	Probe     ProbeInfo // FFprobe 实测：容器、时长、各流编码与分辨率
 }
 
+// PageHints 是站点适配器给页面解析（P4，[05 §4.2]）的两点提示。
+//
+// 为什么是**窄契约**而不是把适配器的类型搬进来：本包不依赖 `internal/adapter`
+// （[01 §3] 的包划分、A-106：适配器只影响发现与解析）。引擎需要知道的只有
+// 两件事，"声明数据长什么样、怎么按主机选出声明"都是适配层的知识。
+//
+// 两个方法都带页面地址：适配器要靠**主机名**才能选出声明（[14 §5.3]），
+// 而页面是请求级的——把地址绑进实现体就得为每个页面造一个提示对象，
+// 反而把"无状态的声明查询"变成有状态的东西。
+type PageHints interface {
+	// CanonicalPageURL 返回页面地址的规范形态（[14 §10] 的 M12）。
+	// 没有可用的规范化规则时**必须原样返回入参**。
+	CanonicalPageURL(pageURL string) string
+	// TranslateResolveError 用适配器声明的 `errors` 翻译解析工具的原始输出
+	// （一般是 stderr 原文）。未命中时返回 `ok == false`，调用方按
+	// `page_resolve_failed` 处置（[05 §4.2] 的追加条款）。
+	//
+	// `raw` 是**敏感内容**：它可能整条带着媒体地址与签名参数（B-722 / [12 §3.3]
+	// 的 E2/E3）。实现方只允许在内存里读它，不得写进日志、错误文本或任何
+	// 持久化位置。
+	TranslateResolveError(pageURL string, raw string) (code string, message string, ok bool)
+}
+
 // Options 是下载器的可调项；零值即合理默认（逐字段说明见下）。
 type Options struct {
 	// HTTPClient 用于出站取字节；nil 时用 [DefaultHTTPClient]。
 	HTTPClient *http.Client
 	// ToolRunner 执行 FFprobe；nil 时用 [ProcessRunner]。
 	ToolRunner ToolRunner
+	// PageHints 是站点适配器的页面解析提示（[05 §4.2]、[14 §5]）。
+	// nil 表示未接线：页面地址不规范化、解析失败一律报 `page_resolve_failed`，
+	// 与没有适配器的行为完全一致。
+	PageHints PageHints
 	// ToolTimeout 是单次工具调用的上限；0 时用 [DefaultToolTimeout]。
 	ToolTimeout time.Duration
 	// OutputLimit 是工具输出的捕获上限；0 时用 [DefaultOutputLimit]。
@@ -175,14 +264,21 @@ func sameHostRedirectOnly(req *http.Request, via []*http.Request) error {
 // 同一个实例可被多个计划并发使用（`http.Client` 本身并发安全）；
 // 但**同一个 `plan_id` 的执行体会被串行化**，见 [Downloader.Run]。
 type Downloader struct {
-	tools     *Toolset
-	probePath string
+	tools      *Toolset
+	probePath  string
+	ffmpegPath string
+	// ytdlpPath 与 denoPath 是 [05 §4.2] 的页面解析工具：yt-dlp 负责解析，
+	// Deno 是它解站点脚本挑战时需要的 JS 运行时。
+	ytdlpPath string
+	denoPath  string
 	client    *http.Client
 	runner    ToolRunner
 	toolWait  time.Duration
 	outLimit  int
 	progress  time.Duration
 	rangeOn   bool
+	// pageHints 是站点适配器的页面解析提示；nil = 未接线（见 [Options.PageHints]）。
+	pageHints PageHints
 
 	// plans 是每计划的串行锁，见 [Downloader.Run]。用 `sync.Map` 是因为
 	// 它的 `LoadOrStore` 不会出现"先查后插"的窗口——那两个窗口之间
@@ -222,25 +318,29 @@ func New(tools *Toolset, opts Options) (*Downloader, error) {
 	}
 
 	d := &Downloader{
-		tools:    tools,
-		client:   client,
-		runner:   runner,
-		toolWait: toolTimeout,
-		outLimit: outLimit,
-		progress: interval,
+		tools:     tools,
+		client:    client,
+		runner:    runner,
+		toolWait:  toolTimeout,
+		outLimit:  outLimit,
+		progress:  interval,
+		pageHints: opts.PageHints,
 		// 零值 = 启用续传（见 Options.DisableRangeResume 的说明）。
 		rangeOn: !opts.DisableRangeResume,
 	}
 	if tools != nil {
 		d.probePath = tools.FFprobe.Path
+		d.ffmpegPath = tools.FFmpeg.Path
+		d.ytdlpPath = tools.YtDlp.Path
+		d.denoPath = tools.Deno.Path
 	}
 	return d, nil
 }
 
 // Run 执行一次 P1 直链下载：取字节 → FFprobe 校验 → 原子交付。
 //
-// 返回的错误一定是带稳定错误码的 [*Error]（目录参数非法除外），
-// 其 `Error()` 是**可安全展示的中文消息**（[05 §7.4]）。
+// 返回的错误一定是带稳定错误码的错误（[*Error]，或站点适配器声明翻译出来的
+// [*SiteError]；目录参数非法除外），其 `Error()` 是**可安全展示的中文消息**（[05 §7.4]）。
 //
 // 失败时的产物处置遵循"无法证明归属的文件永不删除"（[05 §1]）：
 //   - `disk_full`、调用方取消、**校验不通过**：清理本次临时产物
@@ -262,7 +362,7 @@ func (d *Downloader) Run(ctx context.Context, req Request, onProgress func(Progr
 
 	// 关键操作记录耗时，阈值与字段格式复用 [internal/logging] 的既有实现
 	// （[12 §4.4]），免得本包再造一套阈值。
-	defer logging.Slow("download", "direct_run", time.Now())()
+	defer logging.Slow("download", "download_run", time.Now())()
 
 	dirs, err := resolveDirs(req)
 	if err != nil {
@@ -282,11 +382,36 @@ func (d *Downloader) Run(ctx context.Context, req Request, onProgress func(Progr
 		}
 	}()
 
-	result, err := d.execute(ctx, req, dirs, onProgress)
+	result, err := d.dispatch(ctx, req, dirs, onProgress)
 	if err != nil {
 		return Result{}, err
 	}
 	return result, nil
+}
+
+// dispatch 按**输入形态**选一条路径（[05 §4.0] 第一步 + [05 §4.6] 的判定表）。
+//
+// 判定顺序不是随意的：先看"是不是两条各自独立的轨道"（[Request.Tracks]），
+// 再看提示。因为两条独立轨是**输入形态**，它比提示更硬——[05 §4.0] 明确
+// 这条改判**不消耗**那次降级机会。
+//
+// 这里选出的只是**本次执行的路径**。真去连了之后发现提示不成立，
+// 由各路径返回 [RouteMismatch]（P1 见 [directHintMismatch]，P2 见
+// [Downloader.resolveManifest]），改不改路、能不能改由调用方按 [05 §4.0]
+// 第二步决定——本包不替它降级。
+func (d *Downloader) dispatch(
+	ctx context.Context, req Request, dirs workDirs, onProgress func(Progress),
+) (Result, error) {
+	switch {
+	case len(req.Tracks) >= 2:
+		return d.executeTracks(ctx, req, dirs, onProgress)
+	case req.kind() == KindHLS || req.kind() == KindDASH:
+		return d.executeManifest(ctx, req, dirs, onProgress)
+	case req.kind() == KindPage:
+		return d.executePage(ctx, req, dirs, onProgress)
+	default:
+		return d.execute(ctx, req, dirs, onProgress)
+	}
 }
 
 // planLock 返回该计划的串行锁；同一 planID 永远拿到同一把。
@@ -425,6 +550,24 @@ func (d *Downloader) downloadDirect(
 
 	if !appendMode {
 		resumeAt = 0
+	}
+
+	// [05 §4.0] 第一步：调用方说"这是一条自足媒体地址"。真去连的时候，形态可能不是。
+	//
+	// 只在**磁盘上还没有字节**时核实（`existing == 0 && resumeAt == 0`）——这正是
+	// §4.0 第二步那条"必须在尚未写入任何字节之前"的纪律。
+	//
+	// 为什么连上次剩下的分片也算数：那些字节说明**这条直链本来能下**，
+	// 此时改路等于把已经下到的部分当成新路径的分片。宁可这次失败去走 §8 的重试，
+	// 也不要在有进展的情况下换路。
+	//
+	// 返回 [*RouteMismatch] 时**不记失败日志**：它不是失败，是同一次执行内的
+	// 改路信号（B-315：降级不增加 `attempt_count`）。改不改、能不能改由调用方按
+	// §4.0 第二步决定，本包只如实报告观察到的形态。
+	if existing == 0 && resumeAt == 0 && req.wantsDirectSniff() {
+		if mismatch := directHintMismatch(resp); mismatch != nil {
+			return mismatch
+		}
 	}
 
 	// 打开临时文件：206 走追加，其余截断重写。

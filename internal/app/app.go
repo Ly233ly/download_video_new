@@ -134,6 +134,21 @@ func Bootstrap(opts Options) (*Core, error) {
 		}
 	}
 
+	// 【D8】加载站点适配器（[14 §5.3]：启动时扫描，缺声明就退回 generic）。
+	//
+	// 位置与 D7 同一个基准——[14 §4] 第 114 行要求桌面端读**程序安装目录**的
+	// `adapters/`（随安装包分发，与媒体工具同处一地）。加载失败**不终止启动**：
+	// 适配器只影响发现与解析（A-106），失败只让本机没有站点特定的规范化与错误
+	// 文案，程序其余部分照常工作。可它必须可见——用户看到"抖音解析失败"却不知
+	// 为什么，比多一行警告糟得多（与媒体工具缺失同口径）。
+	var pageHints media.PageHints
+	if exePath, err := os.Executable(); err != nil {
+		core.warnings = append(core.warnings, "无法定位程序路径，站点适配器未加载")
+		slog.Warn("定位程序路径失败", "component", "adapter", "event", "exe_path_failed", "err", err)
+	} else {
+		pageHints = core.loadAdapters(exePath)
+	}
+
 	// 【D4】Service 层：Wails 绑定与 HTTP handler 的**唯一**业务入口（[04 §1.2]）。
 	//
 	// 事件出口在这里注入：Service 只描述"发生了什么"，装配层负责接到 Wails 的
@@ -143,7 +158,7 @@ func Bootstrap(opts Options) (*Core, error) {
 
 	// 下载引擎由装配层适配后注入：service 不依赖具体引擎（[04 §1.2]），
 	// 只要求"能跑一个计划"（service.Deps.Runner）。
-	runner, err := newPlanRunner(core.tools, db)
+	runner, err := newPlanRunner(core.tools, db, pageHints)
 	if err != nil {
 		core.closeResources()
 		return nil, err

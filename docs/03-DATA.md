@@ -2,7 +2,18 @@
 
 本文定义持久化结构、取值域与输入校验。
 
-**核心决定**：全新库，结构版本 `1`，**不做任何历史数据迁移**。旧版本数据不再读取。
+**核心决定**：全新库，结构版本 `2`，**不做任何历史数据迁移**——旧实现（v6）的数据不再读取（[ADR-004](adr/ADR-004-no-migration.md)）。
+
+**结构版本与迁移**（`P6` 的落点）：结构版本记在 SQLite 内置的 `PRAGMA user_version`（不占业务表）。**本程序自身的结构变更只允许通过一次性迁移步骤完成**：每个版本号对应一组有序 DDL，例如 v2 为 `plans` 增加 `resolved_kind`（§2.1）。打开库时的处置：
+
+| `user_version` | 处置 |
+| --- | --- |
+| `0`（新库） | 按**当前** DDL 建表，写入当前版本 |
+| `0 < v < 当前` | 按序执行 `v → 当前` 的每一步迁移，再写入当前版本 |
+| `= 当前` | 不做任何事 |
+| `> 当前` | **拒绝打开**并提示程序版本过旧（[01 §5.1](01-ARCHITECTURE.md)） |
+
+迁移步骤**只做结构变更**（加列、加表、加索引），**不得**用启动时的大范围 `UPDATE` 改写业务语义（`P6`）。**这与 ADR-004 不冲突**：ADR-004 否决的是「沿用旧实现的 v1→v6 迁移链」，本程序自身的一次性结构迁移是 `P6` 的要求。代价是**回滚到更早的程序版本会被拒绝打开**（因为库版本更高）——这是刻意选择的「宁可拒绝，也不读错结构」。
 
 ---
 
@@ -15,7 +26,7 @@
 | P3 | 时间统一为 **REAL 类型的 Unix 秒**（含小数） |
 | P4 | 布尔统一为 `INTEGER` + `CHECK (x IN (0,1))` |
 | P5 | 状态与枚举为 `TEXT` + `CHECK` 约束，取值域见 §3 |
-| P6 | 结构变更只允许通过一次性迁移，禁止用启动时大范围 `UPDATE` 代替 |
+| P6 | 结构变更只允许通过一次性迁移，禁止用启动时大范围 `UPDATE` 代替（规则见文首「结构版本与迁移」） |
 | P7 | 秘密永不落盘，见 §6 |
 | P8 | 所有列表查询必须有索引支撑且有 `LIMIT`（**唯一出处**；[01 §7](01-ARCHITECTURE.md) 只引用不重复） |
 
@@ -43,6 +54,9 @@ CREATE TABLE IF NOT EXISTS plans (
     source_title        TEXT NOT NULL DEFAULT '',
     media_kind          TEXT NOT NULL
                         CHECK (media_kind IN ('direct','hls','dash','page','wechat','browser')),
+    resolved_kind       TEXT
+                        CHECK (resolved_kind IS NULL OR resolved_kind IN
+                               ('direct','hls','dash','page','wechat','browser')),
     output_name         TEXT NOT NULL,
     output_container    TEXT NOT NULL
                         CHECK (output_container IN ('mp4','mkv','webm','m4a','mp3','ts')),
@@ -82,6 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_plans_due      ON plans(next_attempt_at)
 
 - `source_url` 为归一化后的页面地址（规则见 §4.1），**不含追踪参数**。
 - `stream_plan` 为 JSON 数组，描述所选轨道与质量档位，**不得包含签名 URL 或解密键**；精确结构见 §2.1.1。
+- `media_kind` 是**调用方的路径提示**，`resolved_kind` 是**实际执行的路径**（规则见 [05 §4.0](05-DOWNLOAD.md)）。`resolved_kind` 为 `NULL` 表示尚未确定（计划还没开始执行），它在执行开始时与 `status = 'running'` **同事务**写入。两者不同即说明发生了降级——界面据此显示实际路径（B-316）。
 - **本表没有媒体地址列，也不得新增**：媒体 URL 与签名参数禁止进入数据库（B-722、§6）。创建计划时请求体里的地址只由 Service 持在**内存**，仅用于本次执行；落库的只有归一化后的**页面**地址（`source_url`，规则见 §4.1）与标题。
 - **重启后的处置**（[05 §9](05-DOWNLOAD.md)）：阶段 2 的地址来自扩展发现的直链，**可能是带一次性签名参数的 CDN 链接**，无法保证重启后仍然有效。因此启动时**未完成的计划**——`running`，以及 `queued` 与等待重试的计划——一律按「上下文不可恢复」处理：置为 `failed`，错误码 `context_expired`，提示「请重新创建任务」。这就是 [05 §9](05-DOWNLOAD.md) 的「无法判断 → 保守置为 `failed`，**不得**让任务空转重试」在阶段 2 的落点。**它与该节第一行（"直链可重建 → 继续调度"）不冲突**：那一行要求上下文**能被证明**可重建，而阶段 2 的直链在重启后既没有地址、也无从判断签名是否过期，拿不到这个证明。阶段 3 起，某条路径若**能自行证明**可重建（可重新解析的页面、清单地址），才按该节第一行继续调度——**默认仍是 `context_expired`**。
 - `attempt_count` / `next_attempt_at` 支撑 B-315（重试计数持久化）。
@@ -113,7 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_plans_due      ON plans(next_attempt_at)
 | 规则 | 说明 |
 | --- | --- |
 | 禁止内容 | **不得**包含媒体 URL、签名参数、Cookie / `Authorization`、视频号 `decode_key` 或任何解密键（B-722、B-223、§6）——写入前必须逐项自检 |
-| 元素个数 | 阶段 2：**至少一个**元素，且只有 `main`。`[]` 只允许出现在"轨道要等解析才知道"的路径（阶段 3 的 `page` / `hls` / `dash`、阶段 5 的 `wechat`） |
+| 元素个数 | 按路径取值（阶段 3 起）：`direct` — 一条 `main`；`hls` / `dash` — 一条 `main`，或 `[]`（等清单解析），或 **`video` + `audio` 各一条**（P3，[05 §4.6](05-DOWNLOAD.md)）；`page` / `wechat` — `[]`（轨道要等解析才知道）。**不得**出现两条以上视频轨或两条以上音频轨——多档位只通过 `quality` 标签表达，不通过多元素 |
 | 不单定上限 | 它的规模随请求体上限受约束（§4.5 的本地 API 请求体上限），**不另设常量** |
 | 写入时机 | 只在创建计划时由 [05 §3](05-DOWNLOAD.md) 的入参写入，**不得**在下载过程中改写——它记录的是**用户的选择** |
 | 读方约束 | 读方**不得**试图从它重建媒体地址：地址根本不在库里（见 §2.1 的「本表没有媒体地址列」） |
@@ -250,8 +265,9 @@ CREATE TABLE IF NOT EXISTS site_rules (
 | 项 | 取值 |
 | --- | --- |
 | `output_container` | `mp4` `mkv` `webm` `m4a` `mp3` `ts` |
-| `merge_mode` | `single`（单文件直出）· `av`（音视频合并）· `subtitles`（含字幕处理） |
-| `media_kind` | `direct` `hls` `dash` `page` `wechat` `browser` |
+| `merge_mode` | `single`（输入自足，**不做**跨轨合并）· `av`（输入是分离的音视频轨，**必须**合并为单文件）· `subtitles`（在主媒体之外还要下载字幕；是否跨轨合并由输入形态决定）——与路径的关系见 [05 §4.6](05-DOWNLOAD.md) |
+| `media_kind` | `direct` `hls` `dash` `page` `wechat` `browser`（**路径提示**，不是命令） |
+| `resolved_kind` | 同 `media_kind`（**实际执行的路径**，见 [05 §4.0](05-DOWNLOAD.md)）；`NULL` = 尚未确定 |
 | 视频扩展名 | `avi m2ts m4v mkv mov mp4 mpeg mpg ts webm wmv` |
 | 字幕扩展名 | `vtt srt ass ssa ttml` |
 | 清单扩展名 | `m3u8` `m3u` `mpd` |

@@ -23,7 +23,8 @@ chrome://extensions → 打开「开发者模式」→「加载已解压的扩�
 | `popup.html` | 入口只含空壳 `#eagleBridgeRoot`；界面全部由 `js/eagle-bridge-ui.js` 用 DOM API 构建 |
 | `content.js` | 页面内下载动作的点击来源记录 |
 | `js/background.js` | Service Worker：导航边界、代次、发现、保活 |
-| `js/content-script.js` | 页面内发现与上报（站点无关） |
+| `js/content-script.js` | 页面内发现与上报（站点无关：只按下发到的声明数据决定行为） |
+| `site-adapters.json` | **构建生成**的站点适配器声明（事实源在 [`../adapters/`](../adapters/)，禁止手工编辑）。由 `js/background.js` 读入下发、`js/content-script.js` 执行，见 [`../docs/14-SITE-ADAPTERS.md`](../docs/14-SITE-ADAPTERS.md) §5 |
 | `js/init.js` | 运行时配置与捕获选项（取代旧 `init.js` + `polyfill.js`） |
 | `js/function.js` | 存储区域与正则工具 |
 | `js/virtual-list.js` | **列表渲染核心**：节点复用、虚拟滚动、图片并发闸门（`P-101`~`P-107`） |
@@ -53,21 +54,48 @@ chrome://extensions → 打开「开发者模式」→「加载已解压的扩�
 与 `P-105`（20 行窗口）共同推出的上界。`P-107` 的「用图片 URL、只对可视区内的行
 赋值、并发上限 4」相应落在 `virtual-list.js` 的 `patchImage()` / `createImageLoader()`。
 
+## 站点适配器：声明从哪来、谁执行、怎么降级
+
+站点差异**只以数据形式**存在（`07` §2：扩展源码里禁止出现站点名判断）。链路是：
+
+1. **声明从哪来**：事实源是 [`../adapters/`](../adapters/) 下的 `adapter.json`，由 `build/gen-site-adapters.ps1`
+   生成 `extension/site-adapters.json`（生成物，禁止手工编辑，`A-105`）。本目录只消费生成物。
+2. **谁读**：`js/background.js` 启动时 `fetch(chrome.runtime.getURL("site-adapters.json"))`
+   读一次并缓存（Service Worker 里读包内文件**不需要** `web_accessible_resources`，
+   `manifest.json` 也就不该为它加这一项）。
+3. **谁执行**：内容脚本读不到包内文件，于是向背景侧发 `{ Message: "getSiteAdapters" }`，
+   背景侧回 `{ ok: true, adapters: [...] }`；`js/content-script.js` 用返回的声明调
+   `matchAdapter` 选中当前页面的适配器，再按其 `capture` / `identity` / `title`
+   决定候选容器、身份 ID、内容页地址、标题与"报哪些、报几个"。通用引擎
+   （`js/eagle-bridge-candidate-logic.js` 末尾的 `adapter*` 纯函数）是这些声明的唯一执行者。
+4. **怎么降级**：文件缺失、JSON 解析失败、消息通道失败**任一**发生，都退化为"没有适配器"
+   （`matchAdapter` 返回 `null`）的通用行为——只处理页面自己供给的 `blob:` 播放源、
+   全部播放器各自上报、地址与标题沿用页面自身——并只 `console.warn` 一次。
+   内容脚本最多等声明 `400ms` 就开跑，**候选发现不因声明不可用而失效**（`14` §5.3）。
+   声明里的选择器若非法（`querySelectorAll` 抛错），只跳过那一条，其余选择器照常收集。
+
 ## 测试
 
 回归门禁在 [`../tests/js/`](../tests/js/)：
 
 ```powershell
-# 全部 8 个（4 个真实门禁 + 3 个跳过式门禁 + 1 个等待资产的门禁）
+# 全部（7 个真实门禁 + 3 个等待资产、目标缺失时自动 SKIP 的门禁）
 Get-ChildItem tests/js/*.js | ForEach-Object { node $_.FullName; "exit=$LASTEXITCODE  $($_.Name)" }
 
-# 只跑可直接判定的 5 个
+# 只跑可直接判定的 7 个
 node tests/js/test_candidate_presentation.js
 node tests/js/test_popup_logic.js
 node tests/js/test_auth_race.js
 node tests/js/test_list_rendering.js
 node tests/js/test_youtube_session.js
+node tests/js/test_adapter_douyin.js
+node tests/js/test_adapter_runtime.js
 ```
+
+`test_adapter_douyin.js` 守"事实源与生成物一致 + 公共代码里没有站点名"，
+`test_adapter_runtime.js` 守"声明 → 行为"里与浏览器无关的一半（选容器、取身份 ID、
+定主播放器、放开直连流、拼标题、降级）。DOM 采集与消息通道不做离线判定——
+本项目不引入 jsdom，那部分靠上面的 `node --check` 与手工回归。
 
 自检（每次改动后都要跑）：
 
@@ -81,7 +109,7 @@ node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8')
 | 项 | 状态 |
 | --- | --- |
 | 站点专用注入脚本（B 站 / YouTube / 搜索） | **不提供**。`07` §2 已取消 `catch-script/`，归 `adapters/<site>/extension.js`（阶段 3）。属阶段性功能回退 |
-| 抖音 / Instagram / Vimeo 的站点专用识别 | 同上；相关分支已从扩展源码删除，`test_bilibili.js` / `test_youtube.js` 保留全部断言但在目标缺失时 SKIP |
+| 抖音 / Instagram / Vimeo 的站点专用识别 | **站点专用代码不再存在**：识别改由声明数据驱动（`site-adapters.json` → `content-script.js`，见上节），扩展源码里没有站点名。声明目前只落了抖音与通用兜底两份；缺声明的站点（Instagram / Vimeo 等）按通用行为跑。`test_bilibili.js` / `test_youtube.js` 保留全部断言但在目标缺失时 SKIP |
 | 视频号 bridge | 属阶段 5；`test_wechat_channels_bridge.js` 同样 SKIP |
 | 增强发现入口 | 弹窗设置页的「诊断」分组保留一个**禁用**的占位行，说明站点专用注入脚本不在本版本内提供。`Message: "script"` 恒返回 `"error no exists"`，与旧版的行为契约一致 |
 | `api-port.json` 端口发现（`AD-5` / B-214） | **部分实现**。MV3 扩展无权读取任意本地文件；当前按默认端口 + 紧随其后的备用端口逐个 `/health` 探测。收敛在 `eagle-bridge.js` 的 `eagleBridgeApiPortHint()` 一处 |

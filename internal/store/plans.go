@@ -93,10 +93,14 @@ const CodeContextExpired = "context_expired"
 
 // Plan 是 plans 表的一行，字段与列一一对应（[03 §2.1]）。
 type Plan struct {
-	ID                string
-	SourceURL         string
-	SourceTitle       string
-	MediaKind         string
+	ID          string
+	SourceURL   string
+	SourceTitle string
+	MediaKind   string
+	// ResolvedKind 是**本次实际执行**的下载路径（[05 §4.0]），nil 表示尚未确定。
+	// 它记录"这次执行从哪种输入形态出发"，不是"内部调用了哪个函数"——P4 解析出的清单
+	// 复用 P2 的实现时仍然是 page（[05 §4.6.4]）。与 MediaKind 不同即发生过降级（B-316）。
+	ResolvedKind      *string
 	OutputName        string
 	OutputContainer   string
 	MergeMode         string
@@ -151,7 +155,7 @@ type RecoveryReport struct {
 
 // planColumns 是 plans 表的全部列，顺序与 scanPlan 的扫描顺序一一对应。
 // 用显式列名而不是 SELECT *：列顺序变化时扫描会立刻报错，而不是把值静默装错字段（[12 §3] 的 E1）。
-const planColumns = `id, source_url, source_title, media_kind, output_name, output_container,
+const planColumns = `id, source_url, source_title, media_kind, resolved_kind, output_name, output_container,
 	merge_mode, quality_label, stream_plan, import_to_eagle, delete_after_import,
 	status, phase, progress, downloaded_bytes, total_bytes, phase_detail,
 	final_path, preview_path, attempt_count, next_attempt_at,
@@ -202,8 +206,8 @@ func (db *DB) InsertPlan(ctx context.Context, p Plan) error {
 	p.UpdatedAt = p.CreatedAt
 
 	_, err := db.sql.ExecContext(ctx, `INSERT INTO plans (`+planColumns+`) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.ID, p.SourceURL, p.SourceTitle, p.MediaKind, p.OutputName, p.OutputContainer,
+		?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		p.ID, p.SourceURL, p.SourceTitle, p.MediaKind, nullableStringPtr(p.ResolvedKind), p.OutputName, p.OutputContainer,
 		p.MergeMode, p.QualityLabel, p.StreamPlan, boolToInt(p.ImportToEagle), boolToInt(p.DeleteAfterImport),
 		p.Status, p.Phase, p.Progress, p.DownloadedBytes, nullableInt(p.TotalBytes), p.PhaseDetail,
 		nullableString(p.FinalPath), nullableString(p.PreviewPath), p.AttemptCount, nullableFloat(p.NextAttemptAt),
@@ -305,20 +309,41 @@ func (db *DB) RemovePlan(ctx context.Context, id string) error {
 	return nil
 }
 
-// MarkPlanRunning 把 queued 计划置为 running 并写入 phase（[05 §2.1]）。
+// MarkPlanRunning 把 queued 计划置为 running，并**在同一条语句里**写入 phase 与本次
+// 实际执行的路径（[05 §2.1]、[05 §4.0]）。
 //
 // 守卫 `status = 'queued'` 保证：已取消/已完成/已失败的计划**不会**被重新拉起来（B-308 的第一道闸）。
 // 同时清空 next_attempt_at（本次调度已消费）与上一次的错误字段。
-func (db *DB) MarkPlanRunning(ctx context.Context, id, phase string) error {
+//
+// resolvedKind 必须给：开始执行时路径一定是已知的（§4.0 的第一步按提示执行）。若之后发生
+// 降级，由 UpdatePlanResolvedKind 改写——**不允许出现 running 却不知道走哪条路的记录**。
+func (db *DB) MarkPlanRunning(ctx context.Context, id, phase, resolvedKind string) error {
 	if phase == PlanPhaseNone || !validPlanPhases[phase] {
 		return fmt.Errorf("运行中的计划必须有合法 phase，收到 %q（[05 §2.2]）", phase)
 	}
+	if !validPlanMediaKinds[resolvedKind] {
+		return fmt.Errorf("非法的实际路径 %q（[03 §3.3]）", resolvedKind)
+	}
 	now := unixSeconds()
 	return db.execPlanTransition(ctx, id, `UPDATE plans
-		SET status = ?, phase = ?, next_attempt_at = NULL,
+		SET status = ?, phase = ?, resolved_kind = ?, next_attempt_at = NULL,
 		    error_code = NULL, error_message = NULL, updated_at = ?
 		WHERE id = ? AND status = ?`,
-		PlanStatusRunning, phase, now, id, PlanStatusQueued)
+		PlanStatusRunning, phase, resolvedKind, now, id, PlanStatusQueued)
+}
+
+// UpdatePlanResolvedKind 在**降级**发生后改写实际路径（[05 §4.0]）。
+//
+// 守卫 `status = 'running'`：换路只可能发生在正在执行的计划上；终态记录不得被改写
+// （否则用户看到的"实际路径"会被事后篡改，B-316 的可见性就没有意义了）。
+func (db *DB) UpdatePlanResolvedKind(ctx context.Context, id, resolvedKind string) error {
+	if !validPlanMediaKinds[resolvedKind] {
+		return fmt.Errorf("非法的实际路径 %q（[03 §3.3]）", resolvedKind)
+	}
+	return db.execPlanTransition(ctx, id, `UPDATE plans
+		SET resolved_kind = ?, updated_at = ?
+		WHERE id = ? AND status = ?`,
+		resolvedKind, unixSeconds(), id, PlanStatusRunning)
 }
 
 // MarkPlanCompleted 把 running 计划置为 completed，并**在同一条语句里**写入 final_path。
@@ -447,12 +472,21 @@ func (db *DB) MarkPlanQueuedForRetry(ctx context.Context, id string, attempt int
 //   - total 未知（nil）时 progress 保持 0——[05 §4.1] 要求"不伪造百分比"；
 //   - running 期间 progress 封顶 99.9——[05 §2.2] 规定"只有 completed 允许 progress = 100"；
 //   - phase_detail 只允许**可直接展示的短文案**，含 URL 或路径的一律拒绝（[03 §2.1]）。
-func (db *DB) UpdateProgress(ctx context.Context, id string, downloaded int64, total *int64, phase, phaseDetail string) error {
+//
+// ratio 是**按时长口径**的进度（0..1），nil 表示这次没有这个口径。只有清单下载
+// （P2）会给出它：[05 §4.6.3] 规定那条路径的 progress 按时长算，而它的
+// total_bytes 通常是 NULL。**两种口径不得混算**，所以它是独立参数而不是换算进 total。
+func (db *DB) UpdateProgress(
+	ctx context.Context, id string, downloaded int64, total *int64, ratio *float64, phase, phaseDetail string,
+) error {
 	if downloaded < 0 {
 		return errors.New("已下载字节数不得为负")
 	}
 	if total != nil && *total < 0 {
 		return errors.New("总字节数不得为负")
+	}
+	if ratio != nil && (*ratio < 0 || *ratio > 1) {
+		return fmt.Errorf("时长进度必须在 0..1 之间，收到 %v（[05 §4.6.3]）", *ratio)
 	}
 	if phase == PlanPhaseNone || !validPlanPhases[phase] {
 		return fmt.Errorf("运行中的计划必须有合法 phase，收到 %q（[05 §2.2]）", phase)
@@ -464,7 +498,7 @@ func (db *DB) UpdateProgress(ctx context.Context, id string, downloaded int64, t
 	return db.execPlanTransition(ctx, id, `UPDATE plans
 		SET downloaded_bytes = ?, total_bytes = ?, progress = ?, phase = ?, phase_detail = ?, updated_at = ?
 		WHERE id = ? AND status = ?`,
-		downloaded, nullableInt(total), runningProgress(downloaded, total), phase, phaseDetail, now,
+		downloaded, nullableInt(total), runningProgress(downloaded, total, ratio), phase, phaseDetail, now,
 		id, PlanStatusRunning)
 }
 
@@ -531,7 +565,7 @@ func (db *DB) RecoverInterrupted(ctx context.Context, now float64) (RecoveryRepo
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	rows, err := tx.QueryContext(ctx, `SELECT id, media_kind, status, source_url FROM plans
+	rows, err := tx.QueryContext(ctx, `SELECT id, media_kind, resolved_kind, status, source_url FROM plans
 		WHERE status IN (?, ?) ORDER BY updated_at`, PlanStatusRunning, PlanStatusQueued)
 	if err != nil {
 		return report, fmt.Errorf("中断恢复失败: %w", err)
@@ -544,11 +578,17 @@ func (db *DB) RecoverInterrupted(ctx context.Context, now float64) (RecoveryRepo
 	var todo []pending
 	for rows.Next() {
 		var id, mediaKind, status, sourceURL string
-		if err := rows.Scan(&id, &mediaKind, &status, &sourceURL); err != nil {
+		var resolvedKind sql.NullString
+		if err := rows.Scan(&id, &mediaKind, &resolvedKind, &status, &sourceURL); err != nil {
 			_ = rows.Close()
 			return report, fmt.Errorf("中断恢复失败: %w", err)
 		}
-		recoverable := contextRebuildable(mediaKind, sourceURL)
+		var resolved *string
+		if resolvedKind.Valid {
+			v := resolvedKind.String
+			resolved = &v
+		}
+		recoverable := contextRebuildable(mediaKind, resolved, sourceURL)
 		switch {
 		case status == PlanStatusRunning:
 			// running 的计划一律先离开 running：要么继续，要么明确失败。
@@ -593,18 +633,25 @@ func (db *DB) RecoverInterrupted(ctx context.Context, now float64) (RecoveryRepo
 	return report, nil
 }
 
-// contextRebuildable 判断重启后能否重建该计划的下载上下文（[05 §9]）。
+// contextRebuildable 判断重启后能否重建该计划的下载上下文（[05 §9]、[05 §4.0] 末段）。
 //
 // 判据来自 [03 §6] 的秘密边界：落盘允许的是"归一化后的页面地址"，媒体地址、Cookie、
 // 视频号会话与解密键都只驻留内存。因此：
 //   - wechat / browser：字节来源与解密上下文只在内存，重启即失去 → 不可恢复；
 //   - direct / hls / dash / page：地址可从 source_url 重建 → 可恢复；
 //   - source_url 为空（无来源可依）→ 保守判为不可恢复，置 failed 而不是空转重试。
-func contextRebuildable(mediaKind, sourceURL string) bool {
+//
+// **已经执行过**的计划（resolvedKind 非 nil）以**实际走过的那条路**为准：降级到 P2/P4 之后，
+// 决定"还能不能重建"的是实际路径，不是调用方当初的提示（[05 §4.0]）。
+func contextRebuildable(mediaKind string, resolvedKind *string, sourceURL string) bool {
 	if strings.TrimSpace(sourceURL) == "" {
 		return false
 	}
-	switch mediaKind {
+	kind := mediaKind
+	if resolvedKind != nil && *resolvedKind != "" {
+		kind = *resolvedKind
+	}
+	switch kind {
 	case PlanMediaDirect, PlanMediaHLS, PlanMediaDASH, PlanMediaPage:
 		return true
 	default:
@@ -653,10 +700,11 @@ func scanPlan(row rowScanner) (Plan, error) {
 		// total_bytes 是 INTEGER，用 NullInt64 而不是 NullFloat64——它承载字节数，不能有浮点误差。
 		totalInt                   sql.NullInt64
 		nextAttemptAt, completedAt sql.NullFloat64
+		resolvedKind               sql.NullString
 		finalPath, previewPath     sql.NullString
 		errorCode, errorMessage    sql.NullString
 	)
-	err := row.Scan(&p.ID, &p.SourceURL, &p.SourceTitle, &p.MediaKind, &p.OutputName, &p.OutputContainer,
+	err := row.Scan(&p.ID, &p.SourceURL, &p.SourceTitle, &p.MediaKind, &resolvedKind, &p.OutputName, &p.OutputContainer,
 		&p.MergeMode, &p.QualityLabel, &p.StreamPlan, &importToEagle, &deleteAfterImport,
 		&p.Status, &p.Phase, &p.Progress, &p.DownloadedBytes, &totalInt, &p.PhaseDetail,
 		&finalPath, &previewPath, &p.AttemptCount, &nextAttemptAt,
@@ -667,6 +715,10 @@ func scanPlan(row rowScanner) (Plan, error) {
 
 	p.ImportToEagle = importToEagle != 0
 	p.DeleteAfterImport = deleteAfterImport != 0
+	if resolvedKind.Valid {
+		v := resolvedKind.String
+		p.ResolvedKind = &v
+	}
 	if totalInt.Valid {
 		v := totalInt.Int64
 		p.TotalBytes = &v
@@ -747,6 +799,10 @@ func validatePlanForWrite(p Plan) error {
 	}
 	if !validPlanMediaKinds[p.MediaKind] {
 		return fmt.Errorf("非法的媒体类型 %q", p.MediaKind)
+	}
+	// resolved_kind 可为 NULL（尚未确定），但一旦有值就必须是已知路径（[03 §3.3]）。
+	if p.ResolvedKind != nil && !validPlanMediaKinds[*p.ResolvedKind] {
+		return fmt.Errorf("非法的实际路径 %q", *p.ResolvedKind)
 	}
 	if strings.TrimSpace(p.OutputName) == "" {
 		return errors.New("输出名不得为空")
@@ -870,12 +926,23 @@ func checkStreamPlanValue(value any) error {
 // runningProgress 计算运行中的进度百分比。
 //
 // [05 §4.1]：无 Content-Length（total 为 nil）时用阶段语义，**不伪造百分比**——保持 0。
+// ratio 是这条规则的**唯一例外**，而它不是伪造：[05 §4.6.3] 规定清单下载（P2）的
+// progress 是**时长口径**——已处理时长 ÷ 清单总时长，由引擎算好传进来。P2 的
+// total_bytes 通常是 NULL，靠字节永远算不出它的百分比。
+//
 // [05 §2.2]：running 期间封顶 99.9，把 100 留给 completed（B-312）。
-func runningProgress(downloaded int64, total *int64) float64 {
+func runningProgress(downloaded int64, total *int64, ratio *float64) float64 {
+	if ratio != nil {
+		return clampRunningProgress(*ratio * 100)
+	}
 	if total == nil || *total <= 0 || downloaded <= 0 {
 		return 0
 	}
-	percent := float64(downloaded) / float64(*total) * 100
+	return clampRunningProgress(float64(downloaded) / float64(*total) * 100)
+}
+
+// clampRunningProgress 把百分比收进 running 期间允许的区间。
+func clampRunningProgress(percent float64) float64 {
 	switch {
 	case percent < 0:
 		return 0
@@ -918,6 +985,15 @@ func nullableString(v string) any {
 		return nil
 	}
 	return v
+}
+
+// nullableStringPtr 与 nullableString 同理，但入参本身就是可空指针
+// （resolved_kind 用 nil 表示"尚未确定"，[03 §2.1]）。
+func nullableStringPtr(v *string) any {
+	if v == nil || strings.TrimSpace(*v) == "" {
+		return nil
+	}
+	return *v
 }
 
 // truncateRunes 按字符（而不是字节）截断，避免把中文截成半个字（[03 §4.5]：错误消息 1000 字符）。

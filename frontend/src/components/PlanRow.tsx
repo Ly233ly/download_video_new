@@ -3,6 +3,7 @@ import {
   failureReason,
   progressCaption,
   progressPercent,
+  routeNotice,
   rowMeta,
   showsProgressBar,
   statusLabel,
@@ -54,7 +55,11 @@ export function PlanRow({ id, offset }: { id: string; offset?: number }) {
   }
 
   const percent = progressPercent(plan);
-  const caption = progressCaption(plan);
+  // 改道提示并进状态说明行：行高是固定常量（[16 §4.5]），加行会把操作挤出可视区。
+  // 完整的实际路径要等阶段 6 的详情展开（B-316 在此之前由这一行承接可见性）。
+  const caption = [progressCaption(plan), routeNotice(plan)]
+    .filter((part) => part !== '')
+    .join(' · ');
   const reason = failureReason(plan);
   const done = plan.status === 'completed';
 

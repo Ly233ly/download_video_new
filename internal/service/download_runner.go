@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/Ly233ly/download_video_new/internal/media"
 )
@@ -66,7 +68,7 @@ func (r *downloadRunner) Run(
 
 // toEngineRequest 把本包的请求映射成引擎的请求。
 func toEngineRequest(req DownloadRequest) media.Request {
-	return media.Request{
+	engineReq := media.Request{
 		PlanID:     req.PlanID,
 		URL:        req.MediaURL,
 		Headers:    toHTTPHeader(req.Headers),
@@ -76,7 +78,48 @@ func toEngineRequest(req DownloadRequest) media.Request {
 		OutputDir:  req.OutputDir,
 		// 0 在引擎侧表示"长度未知"，与本包的三态语义一致（[03 §2.1]）。
 		TotalBytes: req.KnownTotalBytes,
+		// 提示（[05 §4.0] 第一步）：引擎据此选路径，也可能在真去连了之后
+		// 发现它不成立，回报改路信号由本包决定要不要降。
+		Kind:         media.Kind(req.MediaKind),
+		QualityLabel: req.QualityLabel,
 	}
+	engineReq.Tracks = toEngineTracks(req)
+	return engineReq
+}
+
+// toEngineTracks 把**带地址**的轨道选择转成引擎的轨道（[05 §4.6.2] 的 P3）。
+//
+// 只有凑齐**两条**带地址的轨才交出它们：P3 的定义就是"两条各自独立的轨道地址"
+// （[05 §4.6] 的判定表），一条轨不构成 P3——那条轨的地址就是整条计划的地址。
+//
+// 判据是地址而不是数量：`StreamPlan` 里没有 URL 的元素是落库投影
+// （[03 §2.1.1] 明令地址不落库），它们描述"选了哪些轨"，但不足以让引擎去取字节。
+func toEngineTracks(req DownloadRequest) []media.Track {
+	if len(req.StreamPlan) < 2 {
+		return nil
+	}
+	tracks := make([]media.Track, 0, len(req.StreamPlan))
+	for _, track := range req.StreamPlan {
+		address := strings.TrimSpace(track.URL)
+		if address == "" {
+			continue
+		}
+		tracks = append(tracks, media.Track{
+			Kind: track.Kind,
+			URL:  address,
+			// 两条轨是两次独立请求，各自带自己的凭据（B-304）：
+			// 这里传的是本次计划的会话上下文，引擎不会把它转给别的地址
+			// （重定向只允许同源，见 media.sameHostRedirectOnly）。
+			Headers: toHTTPHeader(req.Headers),
+			// 声明字节数**只在内存**（[03 §2.1.1]）：P3 用它判断
+			// "已完整取回的轨不重下"（[05 §4.6.2]）。
+			TotalBytes: track.Bytes,
+		})
+	}
+	if len(tracks) < 2 {
+		return nil
+	}
+	return tracks
 }
 
 // toHTTPHeader 把会话上下文交给引擎。它只在本次请求内使用，
@@ -101,12 +144,34 @@ func fromEngineProgress(progress media.Progress) DownloadProgress {
 		DownloadedBytes: progress.Downloaded,
 		Phase:           progress.Phase,
 		PhaseDetail:     phaseDetailFor(progress.Phase),
+		TimeRatio:       progress.TimeRatio,
 	}
 	if progress.Total > 0 {
 		total := progress.Total
 		out.TotalBytes = &total
+		return out
+	}
+	// 总长度未知、但引擎给了时长口径的进度（[05 §4.6.3] 的 P2）：把它拼进那句
+	// 可直接展示的文案。否则界面上只剩一句"正在下载"，用户看不出它到底动没动。
+	if progress.TimeRatio > 0 {
+		out.PhaseDetail = fmt.Sprintf("%s %d%%", out.PhaseDetail, percentOf(progress.TimeRatio))
 	}
 	return out
+}
+
+// percentOf 把 0..1 的比例变成 1..100 的整数百分比。
+//
+// 下限刻意是 1 而不是 0：已经报出比例了却显示 0%，看起来像"卡住没动"；
+// 上限是 100，避免引擎偶尔报出略大于 1 的比例时界面显示出三位数。
+func percentOf(ratio float64) int {
+	percent := int(ratio*100 + 0.5)
+	if percent < 1 {
+		return 1
+	}
+	if percent > 100 {
+		return 100
+	}
+	return percent
 }
 
 // phaseDetailFor 给阶段配一句**可直接展示**的短文案（[03 §2.1]）。
@@ -134,6 +199,17 @@ func translateEngineError(err error) error {
 		return &DownloadError{
 			Code:    string(coded.Code),
 			Message: coded.Code.Message(),
+			Cause:   err,
+		}
+	}
+	// 站点适配器声明翻译出来的错误（[14 §5] 的 `errors`）：码与文案都是声明里
+	// 的原文，本层只透传。它不在本包的 retryableCodes 表里 → 判为不可重试，
+	// 正合 [05 §4.2] 的追加条款（声明的存在就是为了告诉用户需要人工处理）。
+	var site *media.SiteError
+	if errors.As(err, &site) {
+		return &DownloadError{
+			Code:    string(site.Code),
+			Message: site.Message,
 			Cause:   err,
 		}
 	}

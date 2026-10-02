@@ -50,6 +50,12 @@ export interface PlanView {
   sourceUrl: string;
   sourceTitle: string;
   mediaKind: MediaKind;
+  /**
+   * **实际执行的路径**（B-316、[05 §4.0]）。`null` = 尚未确定（还没开始执行）。
+   *
+   * 与 `mediaKind` 不同即说明发生过自动降级——创建时给的类型只是提示。
+   */
+  resolvedKind: MediaKind | null;
   outputName: string;
   outputContainer: OutputContainer;
   mergeMode: MergeMode;

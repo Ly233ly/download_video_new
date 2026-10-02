@@ -397,6 +397,281 @@
         return snapshot;
     }
 
+    // ——— 站点适配器（[14] 的 L1 声明式引擎）———
+    // 本段是**通用代码**：不含任何站点名。它把 adapters/<id>/adapter.json 里声明的
+    // 匹配范围、ID 来源、页面地址规范化、标题模板、主播放器选择与源约束，
+    // 变成扩展侧可以执行的行为（契约 A-101、A-102、T-ADP-01）。
+
+    const ADAPTER_TITLE_LIMIT = 220;
+    const ADAPTER_ID_FALLBACK_SELECTION = "all";
+    const ADAPTER_PRIMARY_CURRENT = "current-player";
+    const ADAPTER_PRIMARY_FIRST = "first";
+    const ADAPTER_PRIMARY_ALL = "all";
+
+    function normalizeAdapterHost(value) {
+        let host = String(value || "").trim().toLowerCase();
+        if (host.startsWith("[")) {
+            const bracket = host.indexOf("]");
+            return bracket > 0 ? host.slice(1, bracket) : "";
+        }
+        const colon = host.lastIndexOf(":");
+        if (colon > 0 && /^\d+$/.test(host.slice(colon + 1))) host = host.slice(0, colon);
+        return host.replace(/\.+$/, "");
+    }
+
+    function matchAdapterHostPattern(pattern, host) {
+        const rule = String(pattern || "").trim().toLowerCase();
+        if (!rule || !host) return { exact: false, ok: false };
+        if (rule.startsWith("*.")) {
+            const suffix = rule.slice(2);
+            // `*.example.com` 只覆盖子域，不含裸域（[14 §5.3] 的匹配语义）
+            return { exact: false, ok: Boolean(suffix) && host.endsWith(`.${suffix}`) };
+        }
+        return { exact: true, ok: rule === host };
+    }
+
+    function matchAdapter(adapters, host) {
+        const target = normalizeAdapterHost(host);
+        if (!target) return null;
+        let chosen = null;
+        let chosenExact = false;
+        let chosenPriority = -Infinity;
+        let fallback = null;
+        for (const adapter of Array.isArray(adapters) ? adapters : []) {
+            if (!adapter || typeof adapter !== "object") continue;
+            if (adapter.id === "generic") {
+                fallback = fallback || adapter;
+                continue;
+            }
+            const match = adapter.match && typeof adapter.match === "object" ? adapter.match : {};
+            const priority = Number(match.priority) || 0;
+            let matched = false;
+            let exact = false;
+            for (const pattern of Array.isArray(match.hosts) ? match.hosts : []) {
+                const result = matchAdapterHostPattern(pattern, target);
+                if (!result.ok) continue;
+                matched = true;
+                exact = exact || result.exact;
+            }
+            if (!matched) continue;
+            // 优先级降序；同优先级下精确域名优先于通配；同级同等精确度保留先遇到的
+            if (priority > chosenPriority || (priority === chosenPriority && exact && !chosenExact)) {
+                chosen = adapter;
+                chosenExact = exact;
+                chosenPriority = priority;
+            }
+        }
+        return chosen || fallback;
+    }
+
+    function expandAdapterId(expression, groups) {
+        const source = Array.isArray(groups) ? groups : [];
+        let failed = false;
+        const rendered = String(expression === undefined || expression === null ? "" : expression)
+            .replace(/\$([0-9])/g, (_all, digit) => {
+                const value = source[Number(digit)];
+                if (value === undefined || value === null) {
+                    failed = true;
+                    return "";
+                }
+                return String(value);
+            });
+        if (failed) return "";
+        return rendered;
+    }
+
+    function adapterRulesOf(adapter) {
+        const identity = adapter && adapter.identity;
+        return identity && Array.isArray(identity.urlRules) ? identity.urlRules : [];
+    }
+
+    function adapterIdFromUrl(rules, value) {
+        let parsed = null;
+        try {
+            parsed = new URL(String(value || ""));
+        } catch (_error) {
+            return "";
+        }
+        for (const rule of rules) {
+            if (!rule || typeof rule !== "object") continue;
+            if (rule.path) {
+                let matched = null;
+                try {
+                    matched = parsed.pathname.match(new RegExp(rule.path));
+                } catch (_error) {
+                    matched = null;
+                }
+                if (matched) return expandAdapterId(rule.id, matched);
+                continue;
+            }
+            if (!rule.query) continue;
+            const raw = parsed.searchParams.get(String(rule.query));
+            if (raw === null) continue;
+            if (rule.pattern) {
+                let allowed = false;
+                try {
+                    allowed = new RegExp(rule.pattern).test(raw);
+                } catch (_error) {
+                    allowed = false;
+                }
+                if (!allowed) continue;
+            }
+            return expandAdapterId(rule.id, [raw]);
+        }
+        return "";
+    }
+
+    function adapterIdFromText(rules, value) {
+        const text = String(value === undefined || value === null ? "" : value);
+        if (!text) return "";
+        for (const rule of rules) {
+            if (!rule || typeof rule !== "object" || !rule.pattern) continue;
+            let matched = null;
+            try {
+                matched = text.match(new RegExp(rule.pattern));
+            } catch (_error) {
+                matched = null;
+            }
+            if (matched) return expandAdapterId(rule.id, matched);
+        }
+        return "";
+    }
+
+    function videoIdFromAdapterSignals(adapter, input = {}) {
+        const rules = adapterRulesOf(adapter);
+        if (!rules.length) return "";
+        const pageUrl = String(input.pageUrl || "");
+        // 信号优先于地址栏：抖音这类信息流的地址会随滚动变化，正在播的那个才是目标
+        // （[14 §10] 的「既不能靠当前地址、也不能靠第一个 video」）。
+        for (const signal of Array.isArray(input.signals) ? input.signals : []) {
+            const text = String(signal === undefined || signal === null ? "" : signal).trim();
+            if (!text) continue;
+            const fromUrl = /^https?:/i.test(text) ? adapterIdFromUrl(rules, text) : "";
+            if (fromUrl) return fromUrl;
+            // `pattern` 形态的规则（含"整串就是 ID"与"从类名等文本里抽 ID"两种用法）
+            const fromText = adapterIdFromText(rules, text);
+            if (fromText) return fromText;
+        }
+        if (!pageUrl) return "";
+        const fromPage = adapterIdFromUrl(rules, pageUrl);
+        if (fromPage) return fromPage;
+        return adapterIdFromText(rules, pageUrl);
+    }
+
+    function adapterRequiresId(adapter) {
+        return Boolean(adapter && adapter.identity && adapter.identity.requireId === true);
+    }
+
+    function canonicalPageUrlFromAdapter(adapter, videoId, fallbackUrl) {
+        const canonical = String((adapter && adapter.identity && adapter.identity.canonical) || "");
+        const id = String(videoId || "").trim();
+        if (canonical && id) return canonical.replace(/\{id\}/g, id);
+        return String(fallbackUrl || "");
+    }
+
+    function cleanAdapterText(value) {
+        return String(value === undefined || value === null ? "" : value)
+            .replace(/\s+/g, " ")
+            .replace(/展开\s*$/u, "")
+            .trim();
+    }
+
+    function cleanAdapterTitle(value) {
+        return String(value === undefined || value === null ? "" : value)
+            .replace(/\s+/g, " ")
+            .replace(/^[\s\-·|]+/u, "")
+            .replace(/[\s\-·|]+$/u, "");
+    }
+
+    function adapterCandidateTitle(adapter, input = {}) {
+        const title = (adapter && adapter.title) || {};
+        const values = {
+            nickname: cleanAdapterText(input.nickname),
+            description: cleanAdapterText(input.description),
+            id: String(input.videoId || "").trim()
+        };
+        const template = String(title.template || "");
+        if (template) {
+            const rendered = cleanAdapterTitle(template.replace(/\{(nickname|description|id)\}/g,
+                (_all, key) => values[key] || ""));
+            if (rendered) return rendered.slice(0, ADAPTER_TITLE_LIMIT);
+        }
+        const fallback = cleanAdapterTitle(String(title.fallback || "").replace(/\{id\}/g, values.id));
+        return fallback.slice(0, ADAPTER_TITLE_LIMIT);
+    }
+
+    function adapterPrimarySelection(adapter) {
+        const capture = (adapter && adapter.capture) || {};
+        const value = String(capture.primarySelection || "");
+        return [ADAPTER_PRIMARY_CURRENT, ADAPTER_PRIMARY_FIRST, ADAPTER_PRIMARY_ALL].includes(value)
+            ? value : ADAPTER_ID_FALLBACK_SELECTION;
+    }
+
+    function adapterVisibleArea(video) {
+        const rect = (video && video.rect) || {};
+        const width = Number(rect.width) || 0;
+        const height = Number(rect.height) || 0;
+        if (!(width > 0) || !(height > 0)) return 0;
+        const viewport = (video && video.viewport) || {};
+        const viewportWidth = Number(viewport.width) || 0;
+        const viewportHeight = Number(viewport.height) || 0;
+        if (!(viewportWidth > 0) || !(viewportHeight > 0)) return width * height;
+        const left = Math.max(0, Number(rect.left) || 0);
+        const top = Math.max(0, Number(rect.top) || 0);
+        const right = Math.min(viewportWidth, left + width);
+        const bottom = Math.min(viewportHeight, top + height);
+        return Math.max(0, right - left) * Math.max(0, bottom - top);
+    }
+
+    function primaryVideoScore(video) {
+        if (!video || typeof video !== "object") return -1;
+        const readyState = Number(video.readyState) || 0;
+        const duration = Number(video.duration) || 0;
+        const area = adapterVisibleArea(video);
+        if (readyState < 2 || !(duration > 0) || !(area > 0)) return -1;
+        const width = Number((video.rect || {}).width) || 0;
+        const height = Number((video.rect || {}).height) || 0;
+        const playing = video.paused === false && video.ended !== true;
+        const progressed = Number(video.currentTime) > 0.05;
+        return (playing ? 4e12 : 0)
+            + (progressed ? 2e12 : 0)
+            + area * 1000
+            + Math.min(width * height, 1e9)
+            + Math.min(duration, 86400);
+    }
+
+    function adapterVideoIndex(video, position) {
+        const declared = Number(video && video.index);
+        return Number.isInteger(declared) && declared >= 0 ? declared : position;
+    }
+
+    function selectPrimaryVideoIndex(adapter, videos) {
+        const items = Array.isArray(videos) ? videos : [];
+        const selection = adapterPrimarySelection(adapter);
+        if (selection === ADAPTER_PRIMARY_ALL) return -1;
+        let bestPosition = -1;
+        let bestScore = -1;
+        for (let position = 0; position < items.length; position += 1) {
+            const score = primaryVideoScore(items[position]);
+            if (score < 0) continue;
+            if (selection === ADAPTER_PRIMARY_FIRST) return adapterVideoIndex(items[position], position);
+            if (score > bestScore) {
+                bestScore = score;
+                bestPosition = position;
+            }
+        }
+        return bestPosition < 0 ? -1 : adapterVideoIndex(items[bestPosition], bestPosition);
+    }
+
+    function adapterAllowsCapture(adapter, input = {}) {
+        const capture = (adapter && adapter.capture) || {};
+        const hasBlob = input.hasBlobSource === true;
+        const hasDirect = input.hasDirectSource === true;
+        if (capture.requireBlobSource === true) return hasBlob;
+        if (hasBlob) return true;
+        return capture.allowDirectStream === true && hasDirect;
+    }
+
     return {
         safeThumbnailUrl,
         safeFrameDataUrl,
@@ -415,6 +690,16 @@
         parseManifestQualities,
         selectThumbnail,
         waitForSnapshot,
-        boundedMediaSnapshot
+        boundedMediaSnapshot,
+        normalizeAdapterHost,
+        matchAdapter,
+        videoIdFromAdapterSignals,
+        adapterRequiresId,
+        canonicalPageUrlFromAdapter,
+        adapterCandidateTitle,
+        adapterPrimarySelection,
+        primaryVideoScore,
+        selectPrimaryVideoIndex,
+        adapterAllowsCapture
     };
 });

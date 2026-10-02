@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	// SchemaVersion 是新库的结构版本。[03 §1]：全新库 v1，**不做历史迁移**。
+	// SchemaVersion 是当前结构版本（[03 §1]「结构版本与迁移」）。
+	// 全新库按 schemaStatements 建表；已发布的旧库按 migrations 逐级升上来。
 	// 存放位置用 SQLite 内置的 `PRAGMA user_version`——不占 5 张业务表（[03 §2] 规定共 5 张）。
-	SchemaVersion = 1
+	SchemaVersion = 2
 
 	openTimeout  = 10 * time.Second
 	maxOpenConns = 4 // [03 §7]：最大读连接 4
@@ -73,7 +74,7 @@ func Open(path string) (*DB, error) {
 }
 
 // verifyVersion 拒绝"库版本比程序新"的情况（[01 §5.1] 第 3 步的版本校验）。
-// v1 是第一版，不存在更旧的版本需要迁移（[03 §1]）。
+// 更旧的版本不算错误：ensureSchema 会把它们逐级迁移上来（[03 §1]「结构版本与迁移」）。
 func (db *DB) verifyVersion(ctx context.Context) error {
 	var v int
 	if err := db.sql.QueryRowContext(ctx, "PRAGMA user_version").Scan(&v); err != nil {
@@ -85,15 +86,32 @@ func (db *DB) verifyVersion(ctx context.Context) error {
 	return nil
 }
 
-// ensureSchema 建表并写入结构版本，整体在一个事务里完成。
+// ensureSchema 建表（全新库）或逐级迁移（旧库），并写入结构版本，整体在一个事务里完成。
+//
+// [03 §1]「结构版本与迁移」的处置表：0 = 按当前 DDL 建表；0 < v < SchemaVersion = 按序
+// 执行迁移；v = SchemaVersion = 什么都不做（v > SchemaVersion 已被 verifyVersion 拒绝）。
+// **没有"静默跳过"这一档**——缺步骤或执行失败都必须让启动失败，而不是留下半旧的库。
 func (db *DB) ensureSchema(ctx context.Context) error {
+	var version int
+	if err := db.sql.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return fmt.Errorf("读取结构版本失败: %w", err)
+	}
+	if version == SchemaVersion {
+		return nil
+	}
+
+	steps, err := schemaSteps(version)
+	if err != nil {
+		return err
+	}
+
 	tx, err := db.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("开始建表事务失败: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	for _, stmt := range schemaStatements {
+	for _, stmt := range steps {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("初始化表结构失败: %w", err)
 		}

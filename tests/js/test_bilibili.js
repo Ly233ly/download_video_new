@@ -3,16 +3,17 @@
 /*
  * 站点专用注入脚本的回归（阶段 3 的目标）。
  *
- * 07 §2：`catch-script/` **已取消**——站点专用脚本的归处是
- * `adapters/<site>/extension.js`，而适配器体系属阶段 3（13 §6）。
+ * 07 §2：`catch-script/` **已取消**——站点专用逻辑的新家是 `adapters/<site>/`，
+ * 且 14 §6 判定「能用声明表达的禁止写 L2」，所以 bilibili 未必会有一个 `extension.js`
+ * 可指：能声明化的部分会落进 `adapters/bilibili/adapter.json`，由通用声明式引擎执行
+ * （抖音就是这么落地的，见 tests/js/test_adapter_douyin.js）；确需代码的站点则等
+ * 14 §12 的 `SA5`（L2 代码如何进入扩展包）定下来。
  * 因此本阶段 `extension/catch-script/bilibili.js` **不存在**：
  * 扩展包里已没有任何站点专用注入脚本。
  *
  * 本文件保留**全部原断言**，只在目标缺失时输出 SKIP 并以退出码 0 结束——
- * 既不虚报通过，也不删掉断言。阶段 3 把该脚本迁到
- * `adapters/bilibili/extension.js` 后，只需把下面的 `scriptPath` 指过去，
- * 本文件即可恢复为真实门禁（07 §8：站点断言迁到 `test_adapter_<id>.js`，
- * 原断言数量全部保留、不得降低覆盖）。
+ * 既不虚报通过，也不删掉断言。等 bilibili 适配器落地后，按 14 §8 把断言迁到
+ * `tests/js/test_adapter_bilibili.js`（07 §8：原断言数量全部保留、不得降低覆盖）。
  */
 
 const fs = require("fs");
@@ -23,8 +24,9 @@ const scriptPath = path.resolve(__dirname, "..", "..", "extension", "catch-scrip
 if (!fs.existsSync(scriptPath)) {
     process.stdout.write(
         "SKIP test_bilibili: extension/catch-script/bilibili.js 不存在"
-        + "（07 §2 已取消 catch-script/，站点脚本属阶段 3 的 adapters/<site>/extension.js）；"
-        + "本文件的全部断言原样保留，待阶段 3 指向适配器后恢复为真实门禁\n"
+        + "（07 §2 已取消 catch-script/，站点逻辑归 adapters/<site>/，见 14 §6/§10）；"
+        + "本文件的全部断言原样保留，待 bilibili 适配器落地后迁到"
+        + " tests/js/test_adapter_bilibili.js 恢复为真实门禁\n"
     );
     process.exit(0);
 }

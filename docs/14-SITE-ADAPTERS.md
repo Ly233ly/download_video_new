@@ -205,12 +205,19 @@ adapters/
 | `match.hosts` | ✓ | 支持 `*.` 前缀通配。**不写协议、不写路径** |
 | `match.priority` | ✓ | 越大越优先 |
 | `identity` | — | 无则为纯通用发现 |
+| `identity.urlRules` | — | 三种形态与尝试顺序见 §5.4；正则必须是两端都能编译的方言 |
+| `identity.domSignals` | — | 页面上的身份信号选择器，取值的顺序见 §5.4 |
+| `identity.canonical` | — | `{id}` 占位符形式的规范地址。加载时校验含 `{id}` 且主机在 `match.hosts` 之内（A-119） |
 | `identity.requireId` | — | `true` 时取不到 ID 丢弃候选，避免产生无法归属的条目 |
+| `capture.containers` | — | 候选所在容器，按声明顺序取第一个命中项 |
 | `capture.primarySelection` | — | 见 §5.1 |
 | `capture.allowDirectStream` / `requireBlobSource` | — | **放宽或收紧通用约束的唯一入口** |
+| `title.template` / `title.fallback` | — | `{nickname}` / `{description}` / `{id}` 模板；渲染为空时落到 `fallback` |
 | `resolve.engine` | — | 目前只允许 `yt-dlp` 与 `builtin` |
 | `resolve.builtin` | — | `engine` 为 `builtin` 时必填，指向 §6.2 的内置处理器名 |
-| `errors` | — | 按顺序匹配，**首个命中生效** |
+| `resolve.requiresFreshCookies` | — | 声明该站点依赖浏览器新鲜会话（用户侧提示用；**不是**自动改用浏览器下载模式，见 A-117） |
+| `resolve.canonicalizePageUrl` | — | `true` 时桌面端才用 `identity.canonical` 改写交给解析器的地址（[14 §10] 的 M12） |
+| `errors` | — | 按顺序匹配，**首个命中生效**；每条的 `code` 与 `message` 都必须非空（A-119） |
 | `codeReason` | — | L2 必填 |
 
 ### 5.1 `primarySelection`
@@ -228,6 +235,8 @@ adapters/
 **契约 A-107**：`match.hosts` 之外的任何字段都**不得**包含完整 URL、Cookie、令牌或签名参数。适配器随程序分发，属于公开内容。
 
 **契约 A-117**：适配器**不得**声明或切换**浏览器下载模式**（[04 §2.5](04-INTERFACES.md)）。该开关只由用户在扩展弹窗内决定，**禁止**"检测到某站点就自动改用浏览器下载"——用户明确否决了按站点自动切换：同一站点在不同会话下的失败原因不同，自动切换会让"为什么这次变慢了"无法解释。适配器最多可以在**诊断信息**里记录某站点曾出现握手类失败，供用户自行决定是否切换。
+
+**契约 A-118**：适配器**不得**声明或影响**下载路径**（P1~P6，[05 §4](05-DOWNLOAD.md)）的选择。`resolve.engine` 决定的是「页面地址怎么解析出媒体地址」，不是「用哪条路下载」——实际路径由桌面端按 [05 §4.0](05-DOWNLOAD.md) 确定，与适配器无关。理由是路径选择要能看到**响应本身**（`Content-Type`、重定向落点、是否已写入字节），这些只有下载时才知道；适配器在页面上看不到它们，声明路径只会制造错误预期。
 
 ### 5.3 加载与优先级
 
@@ -247,11 +256,47 @@ adapters/
 
 **契约 A-116**：任一 `adapter.json` 解析失败时，**必须**报错并指出文件路径，**禁止**静默跳过。静默跳过的表现是"这个站点突然抓不到了"，用户与开发者都无从排查。
 
+**契约 A-119**：加载时**必须**校验声明自身"写了就起作用"，任一条不满足即按 A-116 报错并指出是哪一条：
+
+| # | 要求 | 不校验会发生什么 |
+| --- | --- | --- |
+| 1 | `errors[].code` 与 `errors[].message` **均非空**（只有空白的也算空） | 空码永不命中；空文案把错误吞成一句空话——两种都是"声明写了却不起作用" |
+| 2 | `identity.canonical` 存在时**必须**含 `{id}` | 替换无从发生，规范化出一个和视频无关的地址 |
+| 3 | `identity.canonical` 的**主机名必须落在 `match.hosts` 之内**（支持 `*.` 通配） | 规范化之后的地址会带着**本页凭据**去请求（[05 §4.2](05-DOWNLOAD.md) 的 B-304），跨站规范化等于把用户的 Cookie 送到适配器自己都没声明的站点 |
+
 > 这三条针对的都是**程序自己的错误**，符合第 2 条设计原则：不防攻击者，但要让自己出错时立刻看得见。
+
+**桌面端的加载时机**：启动时加载（[01 §5.1] 的启动序列里排在媒体工具解析之后）。加载失败**必须**报错并指出路径（A-116），但**不终止启动**——适配器只影响候选发现与页面解析，缺了它程序仍应能打开并下载别的内容；失败以可见警告呈现，与媒体工具缺失同口径（README 设计原则：不静默降级）。这一条与 A-116 不冲突：A-116 要求的是"不许装作没这回事"，不是"整程序退出"。
+
+**扩展端的加载时机**：内容脚本不读包内文件（`manifest.json` 没有 `web_accessible_resources`，也不该为这个数据文件加上），声明由背景侧读取后经既有消息通道下发；下发失败时退化为"没有适配器"的通用行为并 `console.warn` 一次，**不得**让候选发现整体失效。
+
+---
+
+### 5.4 `identity.urlRules` 的三种形态
+
+`urlRules` 按声明顺序尝试，**先命中者胜**；三种形态共用同一个 `id` 取值表达式（`$0` 整串、`$1` 捕获组）：
+
+| 形态 | 字段 | 作用于 |
+| --- | --- | --- |
+| 路径规则 | `path` | `location.pathname`（以及作为信号传入的地址的 path） |
+| 查询参数规则 | `query` + 可选 `pattern` | 该查询参数的取值；`pattern` 不匹配即视为不命中 |
+| 文本规则 | 只有 `pattern` | **任意字符串信号**：页面地址、`identity.domSignals` 命中的元素属性值、类名等 |
+
+文本规则是「整串就是 ID」与「ID 藏在类名里」这两类页面形态的声明式表达（旧实现里对应 `douyinVideoIdFromSignals` 的三段猜测）。**信号的收集顺序是：先逐个 DOM 信号，再页面地址**——信息流的地址栏会随滚动变化，正在播的那一个才是目标（[14 §10]）。同一份规则表两端共用，所以规则必须写成**两端都能编译的方言**——桌面端是 Go 的 RE2，扩展端是 JS 的 `RegExp`，因此**不得使用 lookahead / lookbehind / 反向引用**（RE2 不支持，加载期会直接报错，见 `internal/adapter/adapter.go` 的校验）。
+
+DOM 信号的**收集范围**是「候选容器之内，取不到再退到整篇文档」，取值去重且有数量上限（声明只给选择器，不给范围）：候选单元就是容器（§5.1），先从容器里找与页面结构一致，而退到整篇文档是兜底——信息流里同一个 `data-aweme-id` 会重复出现在多个卡片上，去重与上限保证候选不会因此爆炸。
+
+声明**尚未到达**时（扩展侧取声明失败或还没回来），发现流程按「没有适配器」执行，**候选发现本身不得因此失效**；为避免同一候选被通用路径与声明路径各上报一次，扩展侧**先等一次声明**（有上限，超时即按通用行为开跑）。
+
+扩展侧的通用引擎（`extension/js/eagle-bridge-candidate-logic.js` 的 `matchAdapter` / `videoIdFromAdapterSignals` / `canonicalPageUrlFromAdapter` / `adapterCandidateTitle` / `selectPrimaryVideoIndex` / `adapterAllowsCapture`）是这些声明的**唯一执行者**；它不含任何站点名，站点判定只存在于 `adapter.json`（契约 A-102、`T-ADP-01`）。
 
 ---
 
 ## 6. 代码适配器（L2）
+
+**当前没有任何适配器是 L2**：抖音曾按旧实现登记为 L2，核对后改为 L1（原因见 §10）。按 **契约 A-101**，能用声明表达的一律不得写 L2，所以 L2 应当是稀缺形态，而不是默认形态。
+
+L2 代码**如何进入扩展包**目前**尚未定义**：§4.1 的生成步骤只往 `extension/` 写一个数据文件，扩展保持"源码即产物、无打包器"（[12 §9](12-CONVENTIONS.md) 的 `C9`）；把 `adapters/<id>/extension.js` 拷进扩展包会给扩展引入 JS 构建步骤，与 `C9` 直接冲突。该问题登记为 §12 的 `SA5`，**在第一个确实需要 L2 的站点出现之前不落机制**——为不存在的东西造构建步骤违反功能优先。
 
 ### 6.1 扩展侧 `extension.js`
 
@@ -321,7 +366,7 @@ adapters/
 | 层 | 测什么 | 新仓库落点（Go / JS） |
 | --- | --- | --- |
 | L1 | 加载后匹配、URL 规则命中、错误映射 | `internal/adapter/adapter_test.go` |
-| L2 扩展侧 | §6.1 的四个纯函数 | `extension/tests/test_adapter_<id>.js` |
+| L2 扩展侧 | §6.1 的四个纯函数 | `tests/js/test_adapter_<id>.js` |
 | L2 桌面侧 | 内置处理器的解析结果 | `internal/adapter/<id>_test.go` |
 
 > 技术栈是 Go + 原生 JS（[12 §5.1](12-CONVENTIONS.md) 的测试层次），**不引入 Python**。上表第一、三行的测试必须能在 `go test ./...` 下跑完。
@@ -330,8 +375,8 @@ adapters/
 
 | 旧实现的测试 | 归位到 |
 | --- | --- |
-| `test_candidate_presentation.js` 中的抖音部分 | `extension/tests/test_adapter_douyin.js` |
-| `test_popup_logic.js` 中的抖音部分 | `extension/tests/test_adapter_douyin.js` |
+| `test_candidate_presentation.js` 中的抖音部分 | `tests/js/test_adapter_douyin.js` |
+| `test_popup_logic.js` 中的抖音部分 | `tests/js/test_adapter_douyin.js` |
 | `test_media.py` 中的抖音部分 | `internal/adapter/douyin_test.go` |
 | `test_extension.py` 中的抖音部分 | `internal/adapter/douyin_test.go` |
 
@@ -377,7 +422,11 @@ adapters/
 | `errors[1]` | `media.py:1942-1946` |
 | `updatedFor` | —（`null`：**从未按新架构核对**） |
 
-**L2 理由**：`selectPrimaryIndex` 需要读取实时播放状态（`videoIndex === douyinPrimaryIndex`，`content-script.js:372`），无法用声明表达。故此适配器 `codeReason` 非空。
+**层次：L1，且不得加 `codeReason`。** 早先这里写的是「L2 理由：`selectPrimaryIndex` 需要读取实时播放状态（`content-script.js:372`），无法用声明表达」——那是从旧实现照搬过来的判断，与 §5.1 直接冲突：`primarySelection` 的 `current-player` 取值就是「在多个 `<video>` 中选当前播放的那个」的**声明式**表达，§5.1 还把抖音点名为该取值的用例。
+
+按 **契约 A-101**（能用 L1 表达的**禁止**写 L2）与 `T-ADP-01`（判据即「无越层声明（能用 L1 却写 L2）」），抖音所需的一切——`match.hosts`、`identity.urlRules`、`domSignals`、`canonical`、`requireId`、`capture.containers`、`primarySelection`、`allowDirectStream`/`requireBlobSource`、`title.template`/`fallback`——**都已在 `adapter.json` 中声明完毕，没有一项需要代码**。
+
+「谁在播、谁可见、谁已就绪」这类判断属于**通用发现代码**，由 `primarySelection` 的取值驱动，与站点无关；旧实现之所以写死 `videoIndex === douyinPrimaryIndex`，是因为旧版把站点判断放进了公共脚本，而新架构下这类分支按 **A-102** 只能待在适配器目录里——它已被声明覆盖，代码形态不再需要。
 
 **迁移状态**：**待移植**。旧项目的抖音实现从未按新架构核对，`M` 系列手工验收中也没有抖音专项。移植时必须执行 [11 §5](11-ACCEPTANCE.md) 的 **M12**（已登记）。
 
@@ -406,3 +455,4 @@ adapters/
 | ~~SA2~~ | ~~`site-adapters.json` 由哪个构建步骤生成~~ **已定**：**新增独立脚本** `build/gen-site-adapters.ps1`（生成与 `-Check` 校验两用），**不并入** `build/check-go.ps1`、也不挂到 `wails build`；生成时机（改 `adapters/` 后、打包扩展前、提交门禁第 6 项）与「**阶段 2 不需要**、随阶段 3 的适配器体系首次落地」见 §4.1 | 已解决 |
 | ~~SA3~~ | ~~适配器 `version` 与产品版本是否需要绑定~~ **已定：不绑定**。适配器必须能独立于产品版本更新——站点改版不会等我们的发版节奏（见 [13 §8](13-ROADMAP.md) 的 `R10`）。`version` 只表示该适配器自身声明的修订号 | 已解决 |
 | SA4 | 诊断页的适配器状态：`updatedFor` 为 `null` 显示「尚未核对」，距今过久显示「可能过期」 | 阶段 7 |
+| SA5 | **L2 代码如何进入扩展包**：§4.1 只生成一个数据文件，而 `adapters/<id>/extension.js` 要被执行就必须进包（拷贝会引入 JS 构建步骤，与 [12 §9](12-CONVENTIONS.md) 的 `C9` 冲突）。见 §6 | 第一个确实需要 L2 的站点出现时 |
